@@ -14,7 +14,9 @@
 
 
 
-INT4 inode_from_filepath(int fd);
+INT4 inodeFromFilepath(int fd);
+void getFreeInode(); // return block number of inode
+void writeInodeDataBlocks();
 
 /*! *************************************************************************
  * Function Name : main 
@@ -64,6 +66,30 @@ VOID main(INT4 argc, CHAR** argv )
 
     old_inode = inode_from_filepath(fd);
     printf("Inode: %d\n", old_inode);
+    
+    int blocknum = getFreeInode();
+    // fseek64 to blocknum
+    // Get inode struct for old file inode number from group 6
+    // Copy meta data from old inode struct to new inode using fwrite
+    // writeInodeDataBlocks(old, new);
+    // Get inode struct for root directory inode number group 5
+    // Open data blocks for directory inode struct
+    // Iterate through data blocks then add directory entry (filename, inode number)
+    // ls command
+    // open file
+}
+
+void getFreeInode(){
+
+    // Loop through the block groups for free inodes (group 3)
+    // Go to inode bitmap given block number (group 4)
+    // Read block for first bit that is 0, or unused
+
+    // return this index as the block that contains the inode
+}
+
+// parameters: old_inode_struct, new_inode_struct
+void writeInodeDataBlocks(){
 
 }
 

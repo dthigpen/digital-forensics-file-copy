@@ -12,10 +12,15 @@
 
 #include <sys/stat.h>
 
-
+#define BYTE_SIZE 8
+#define FULL_BYTE 0xFF
 
 INT4 inodeFromFilepath(int fd);
-void getFreeInode(); // return block number of inode
+struct free_inode {
+	UINT4 block_num;
+	UINT4 inode_num;
+}
+struct free_inode getFreeInode(); // return block number and inode number of free inode
 void writeInodeDataBlocks();
 
 /*! *************************************************************************
@@ -79,13 +84,51 @@ VOID main(INT4 argc, CHAR** argv )
     // open file
 }
 
-void getFreeInode(){
+struct free_inode getFreeInode() {
+	UINT4 blockGroupNbr = 0;
+	// Loop through block groups until a free inode is found
+	while( true )
+	{
+		INT4 retVal;
+		UINT1 i;
+        	UINT1 b[BLK_SIZE];
+	        // Use group 3's function to get block group at blockGroupNbr
+		// UINT4 inodeBitmapBlock = Use group 3's function to get inode bitmap block
+		// UINT4 inodeTableBlock = Use group 3's function to get inode table block
+		// UINT4 inodesPerBlockGroup = Use superblock;
+		// fseek64 to inodeBitmapBlock;
 
-    // Loop through the block groups for free inodes (group 3)
-    // Go to inode bitmap given block number (group 4)
-    // Read block for first bit that is 0, or unused
-
-    // return this index as the block that contains the inode
+		// Read inode bitmap into memory
+        	retVal = read(fd, b, BLK_SIZE);
+        	if ( retVal <= 0 )
+        	{
+                	fprintf(stderr, "unable to read disk, retVal = %d\n", retVal );
+                	exit(1);
+        	}
+		// This might need to be i < (inodesPerBlockGroup / BYTE_SIZE)?
+		for (i = 0; i < BLK_SIZE; i++)
+		{
+			// Check each byte to see if it is all 1's (0xFF)
+	    		if(b[i] != FULL_BYTE)
+			{
+				// If byte is not all 1's, find the first free bit
+				for(j = 0; j < BYTE_SIZE; j++)
+				{
+					INT1 bIsUsed = ((b[i] >> j) & 1);
+					if(bIsUsed == 0)
+					{
+						
+						struct free_inode inode;
+						inode.inode_num = (blockGroupNbr * inodesPerBlockGroup) + ((i * BYTE_SIZE) + j);
+						inode.block_num = (((i * BYTE_SIZE) + j) * BLK_SIZE) + inodeTableBlock;
+						return inode;
+					}
+				}
+			}
+		}
+		blockGroupNbr++;
+	}
+	return NULL;
 }
 
 // parameters: old_inode_struct, new_inode_struct

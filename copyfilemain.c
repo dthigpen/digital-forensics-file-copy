@@ -20,7 +20,7 @@ struct free_inode {
 	UINT4 block_num;
 	UINT4 inode_num;
 }
-struct free_inode getFreeInode(); // return block number and inode number of free inode
+struct free_inode claimFreeInode(); // return block number and inode number of free inode
 void writeInodeDataBlocks();
 
 /*! *************************************************************************
@@ -72,7 +72,7 @@ VOID main(INT4 argc, CHAR** argv )
     old_inode = inode_from_filepath(fd);
     printf("Inode: %d\n", old_inode);
     
-    int blocknum = getFreeInode();
+    struct free_inode new_inode = claimFreeInode();
     // fseek64 to blocknum
     // Get inode struct for old file inode number from group 6
     // Copy meta data from old inode struct to new inode using fwrite
@@ -84,7 +84,8 @@ VOID main(INT4 argc, CHAR** argv )
     // open file
 }
 
-struct free_inode getFreeInode() {
+// Claims an inode and returns the block number and inode number
+struct free_inode claimFreeInode() {
 	UINT4 blockGroupNbr = 0;
 	// Loop through block groups until a free inode is found
 	while( true )
@@ -115,8 +116,15 @@ struct free_inode getFreeInode() {
 				for(j = 0; j < BYTE_SIZE; j++)
 				{
 					INT1 bIsUsed = ((b[i] >> j) & 1);
+					
 					if(bIsUsed == 0)
 					{
+						// Seek to this byte
+						fseek(fd, i, SEEK_CUR);
+						// Claim bit j in this byte
+						INT1 claimed = (b[i] | (1 << j));
+						// Write claimed bit into inode table
+						fwrite(&claimed, 1, 1, fd);
 						
 						struct free_inode inode;
 						inode.inode_num = (blockGroupNbr * inodesPerBlockGroup) + ((i * BYTE_SIZE) + j);

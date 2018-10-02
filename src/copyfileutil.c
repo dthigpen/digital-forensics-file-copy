@@ -1,5 +1,6 @@
 #include "copyfileinc.h"
 #include "inodeinc.h"
+
 VOID InodeCopyFile(UINT4 fd, UINT4 u4OldInodeNo) {
     // Get old inode
     struct ext3_inode oldInode;
@@ -38,10 +39,10 @@ VOID InodeCopyFile(UINT4 fd, UINT4 u4OldInodeNo) {
 
     // Create new directory entry to put in root inode
     struct ext3_dir_entry_2 newDirectoryEntry;
-    CreateDirectoryEntry(&newDirectoryEntry, new_inode.inode_num, "some name");
+    CreateDirectoryEntry(&newDirectoryEntry, u4ClaimedInodeNum, "some name");
 
     // Add directory entry to root inode block 0
-    if(InodeDirAddChildEntry(&newDirectoryEntry, rootInode->i_block[0]) == INODE_FAILURE) {
+    if(InodeDirAddChildEntry(&newDirectoryEntry, rootInode.i_block[0]) == INODE_FAILURE) {
 	printf("ERROR: Failed to add child entry Inode: %d %s:%d\n", u4Index, __FILE__, __LINE__);
         return -1;
     }
@@ -53,15 +54,21 @@ VOID InodeCopyFile(UINT4 fd, UINT4 u4OldInodeNo) {
 UINT4 ClaimFreeInode() {
 	UINT4 blockGroupNbr = 0;
 	UINT4 u4BlockSize = 1024 << sb.s_log_block_size;
+	struct ext3_group_desc GroupDes;
+
 	// Loop through block groups until a free inode is found
-	while( true )
+	while( 1 )
 	{
+		memset(&GroupDes, 0, sizeof(GroupDes));
 		INT4 retVal;
 		UINT1 i;
-        	UINT1 b[u4BlockSize];
+        UINT1 b[u4BlockSize];
 		UINT8 u8GbdOffset = 0;
+		
+    	UINT4 u4GroupNo = 0;
+
 		u8GbdOffset = u4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
-		if(InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc) == INODE_FAILURE) {
+		if(InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc) == INODE_FAILURE)) {
 			printf("ERROR: Failed to read Block group descriptor table %s:%d\n", __FILE__, __LINE__);
 			return INODE_FAILURE;
 		}
@@ -70,7 +77,7 @@ UINT4 ClaimFreeInode() {
 		// UINT4 inodeTableBlock = Use group 3's function to get inode table block
 		// UINT4 inodesPerBlockGroup = Use superblock;
 		// fseek64 to inodeBitmapBlock;
-
+		
 		// Read inode bitmap into memory
         	retVal = read(fd, b, u4BlockSize);
         	if ( retVal <= 0 )

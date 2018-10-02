@@ -24,3 +24,5 @@ UINT1 *gpInodeArray;
 
 UINT4 gu4RootDataBlock;
 
+/* Used in copyfileutil.c */
+UINT4 u4Index;

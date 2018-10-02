@@ -15,13 +15,10 @@
 #define BYTE_SIZE 8
 #define FULL_BYTE 0xFF
 
-INT4 inodeFromFilepath(int fd);
-struct free_inode {
-	UINT4 block_num;
-	UINT4 inode_num;
-}
-struct free_inode claimFreeInode(); // return block number and inode number of free inode
-void writeInodeDataBlocks();
+void CreateDirectoryEntry(struct ext3_dir_entry_2* pDirEntry,UINT4 inode_num, UCHAR* name);
+
+INT4 InodeFromFilepath(int fd);
+UINT4 ClaimFreeInode(); // return inode number of found inode
 
 /*! *************************************************************************
  * Function Name : main 
@@ -41,7 +38,7 @@ VOID main(INT4 argc, CHAR** argv )
     CHAR *DEFAULT_DEV = "/dev/sdb1";
     CHAR *pDev;
     CHAR *filepath;
-    INT4 fd, old_inode, new_inode;
+    INT4 fd, u4OldIndoNo, new_inode;
 
 
     if (argc == 1)
@@ -63,36 +60,85 @@ VOID main(INT4 argc, CHAR** argv )
     }
     
     printf("Args: dev: %s filename: %s",pDev,filepath);
-    fd = open(filepath, O_RDONLY);
+    fd = open(filepath, O_RDWR);
     if(fd < 0){
         perror("Error opening file");
         return -1;
     }
 
-    old_inode = inode_from_filepath(fd);
-    printf("Inode: %d\n", old_inode);
-    
-    struct free_inode new_inode = claimFreeInode();
-    // fseek64 to blocknum
-    // Get inode struct for old file inode number from group 6
-    // Copy meta data from old inode struct to new inode using fwrite
-    // writeInodeDataBlocks(old, new);
-    // Get inode struct for root directory inode number group 5
-    // Open data blocks for directory inode struct
-    // Iterate through data blocks then add directory entry (filename, inode number)
+    u4OldInodeNo = inode_from_filepath(fd);
+    printf("Inode: %d\n", u4OldInodeNo);
+
+    InodeInit(fd);
+    InodeCopyFile(u4OldInodeNo);
+    InodeInitExit();
+}
+
+VOID InodeCopyFile(UINT4 fd, UINT4 u4OldInodeNo) {
+    // Get old inode
+    struct ext3_inode oldInode;
+
+    memset(&oldInode, 0, sizeof(oldInode));
+
+    if (InodeUtilReadInode(u4OldInodeNo, &oldInode) == INODE_FAILURE) {
+        printf("ERROR: Failed to read Inode: %d %s:%d\n", u4OldInodeNo, __FILE__, __LINE__);
+        return -1;
+    }
+
+    // Claim new inode
+    UINT4 u4ClaimedInodeNum = ClaimFreeInode();
+
+    // Get new inode offset
+    UINT8 pu8Offset = 0;
+    if(InodeUtilGetInodeOffset(u4ClaimedInodeNum, &pu8Offset) == INODE_FAILURE) {
+        printf("ERROR: Failed to get Inode offset: %d %s:%d\n", u4ClaimedInodeNum, __FILE__, __LINE__);
+        return -1;
+
+    }
+
+    // Seek to new inode location and copy old inode info to it
+    fseek64(fd, pu8Offset, SEEK_SET);
+    write(fd, &oldInode, sizeof(oldInode));
+
+    // Get root inode
+    struct ext3_inode rootInode;
+
+    memset(&rootInode, 0, sizeof(rootInode));
+
+    if (InodeUtilReadInode(ROOT_INODE, &rootInode) == INODE_FAILURE) {
+        printf("ERROR: Failed to read Inode: %d %s:%d\n", ROOT_INODE, __FILE__, __LINE__);
+        return -1;
+    }
+
+    // Create new directory entry to put in root inode
+    struct ext3_dir_entry_2 newDirectoryEntry;
+    CreateDirectoryEntry(&newDirectoryEntry, new_inode.inode_num, "some name");
+
+    // Add directory entry to root inode block 0
+    if(InodeDirAddChildEntry(&newDirectoryEntry, rootInode->i_block[0]) == INODE_FAILURE) {
+	printf("ERROR: Failed to add child entry Inode: %d %s:%d\n", u4Index, __FILE__, __LINE__);
+        return -1;
+    }
     // ls command
     // open file
 }
 
 // Claims an inode and returns the block number and inode number
-struct free_inode claimFreeInode() {
+UINT4 ClaimFreeInode() {
 	UINT4 blockGroupNbr = 0;
+	UINT4 u4BlockSize = 1024 << sb.s_log_block_size;
 	// Loop through block groups until a free inode is found
 	while( true )
 	{
 		INT4 retVal;
 		UINT1 i;
-        	UINT1 b[BLK_SIZE];
+        	UINT1 b[u4BlockSize];
+		UINT8 u8GbdOffset = 0;
+		u8GbdOffset = u4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
+		if(InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc) == INODE_FAILURE) {
+			printf("ERROR: Failed to read Block group descriptor table %s:%d\n", __FILE__, __LINE__);
+			return INODE_FAILURE;
+		}
 	        // Use group 3's function to get block group at blockGroupNbr
 		// UINT4 inodeBitmapBlock = Use group 3's function to get inode bitmap block
 		// UINT4 inodeTableBlock = Use group 3's function to get inode table block
@@ -100,14 +146,14 @@ struct free_inode claimFreeInode() {
 		// fseek64 to inodeBitmapBlock;
 
 		// Read inode bitmap into memory
-        	retVal = read(fd, b, BLK_SIZE);
+        	retVal = read(fd, b, u4BlockSize);
         	if ( retVal <= 0 )
         	{
                 	fprintf(stderr, "unable to read disk, retVal = %d\n", retVal );
                 	exit(1);
         	}
-		// This might need to be i < (inodesPerBlockGroup / BYTE_SIZE)?
-		for (i = 0; i < BLK_SIZE; i++)
+		// This might need to be i < (sb.s_inodes_per_group / BYTE_SIZE)?
+		for (i = 0; i < u4BlockSize; i++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
 	    		if(b[i] != FULL_BYTE)
@@ -124,24 +170,16 @@ struct free_inode claimFreeInode() {
 						// Claim bit j in this byte
 						INT1 claimed = (b[i] | (1 << j));
 						// Write claimed bit into inode table
-						fwrite(&claimed, 1, 1, fd);
+						write(fd, &claimed, 1);
 						
-						struct free_inode inode;
-						inode.inode_num = (blockGroupNbr * inodesPerBlockGroup) + ((i * BYTE_SIZE) + j);
-						inode.block_num = (((i * BYTE_SIZE) + j) * BLK_SIZE) + inodeTableBlock;
-						return inode;
+						return (blockGroupNbr * sb.s_inodes_per_group) + ((i * BYTE_SIZE) + j);
 					}
 				}
 			}
 		}
 		blockGroupNbr++;
 	}
-	return NULL;
-}
-
-// parameters: old_inode_struct, new_inode_struct
-void writeInodeDataBlocks(){
-
+	return 0;
 }
 
 /*! *************************************************************************
@@ -156,7 +194,7 @@ void writeInodeDataBlocks(){
  * Returns       : INT4 - the inode number of the file that was input
  *
  **************************************************************************/
-INT4 inode_from_filepath(int fd)
+INT4 InodeFromFilepath(int fd)
 {
     struct stat file_stat;
     INT4 ret;
@@ -168,8 +206,12 @@ INT4 inode_from_filepath(int fd)
     
 }
 
-
-
-
-
-
+void CreateDirectoryEntry(struct ext3_dir_entry_2* pDirEntry, UINT4 inode_num, UCHAR* name)
+{
+	pDirEntry->inode = inode_num;
+	pDirEntry->file_type = EXT3_FT_REG_FILE;
+	pDirEntry->name_len = strlen(name);
+	memset(pDirEntry->name, 0, EXT3_NAME_LEN);
+	pDirEntry->name = name;
+	pDirEntry->rec_len = DIR_REC_LEN(pDirEntry);
+}

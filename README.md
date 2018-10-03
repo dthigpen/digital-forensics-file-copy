@@ -28,4 +28,8 @@ git clone https://github.com/dthigpen/digital-forensics-file-copy.git copyfile
 	- clean config
 
 ### Note
-This project cannot currently compile and run on its own. it requires the utd digital-forensics repository for its dependecies
+This repository requires you to run the following commands:
+```
+cd copyfile/
+git clone https://github.com/troydhanson/uthash.git
+```

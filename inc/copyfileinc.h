@@ -13,6 +13,5 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include "cmninc.h"
-// #include "inodeincs.h"
 #include "copyfiletdfs.h"
 #include "copyfileproto.h"

@@ -52,7 +52,9 @@ INT4 InodeFixRootDataBlockPtr(struct ext3_inode *pInode);
 /*****************************************************************************/
 /*                              inodeinit.c                                  */
 /*****************************************************************************/
-VOID InodeInit(CHAR *pDev);
+VOID InodeInit(INT4 fd);
+
+INT4 InodeInitReadSuperBlock();
 
 VOID InodeInitExit();
 

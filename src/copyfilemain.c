@@ -10,11 +10,10 @@
  *
  *******************************************************************/
 
+#define _LARGEFILE64_SOURCE
+//TODO: should add this define in suitable location
 #include "copyfileinc.h"
 #include "inodeinc.h"
-
-#define BYTE_SIZE 8
-#define FULL_BYTE 0xFF
 
 /*! *************************************************************************
  * Function Name : main 
@@ -31,43 +30,34 @@
  **************************************************************************/
 VOID main(INT4 argc, CHAR** argv )
 {
-    CHAR *DEFAULT_DEV = "/dev/sdb1";
     CHAR *pDev;
-    CHAR *filepath;
-    INT4 fd, u4OldIndoNo, new_inode;
+    CHAR *cInode;
+    CHAR *name;
+    INT4 fd;
+    UINT4 u4OldInodeNo;
 
 
-    if (argc == 1)
+    if (argc < 4)
     {
         printf("Enter disk name as command line argument. e.g - sudo ./copyfile /dev/sda1 filepath\n");
         //return -1;
-    }else if(argc == 2){
-        printf("Using fefault device: %s", DEFAULT_DEV);
-        pDev = DEFAULT_DEV;
-        filepath = argv[2];
-    }else{
-        pDev = argv[1];
-        filepath = argv[2];
-        
-        if(argc > 3)
-        {
-            printf("Only using the first two args.");
-        }
+    } else if (argc >= 4) {
+	pDev = argv[1];
+	cInode = argv[2];
+	name = argv[3];
     }
-    /*
-    printf("Args: dev: %s filename: %s",pDev,filepath);
-    fd = open(filepath, O_RDWR);
+
+    printf("Args: dev: %s inode: %s\n",pDev,cInode);
+    fd = open(pDev, O_RDWR);
     if(fd < 0){
         perror("Error opening file");
-        return -1;
+        return;
     }
 
-    u4OldInodeNo = inode_from_filepath(fd);
-    printf("Inode: %d\n", u4OldInodeNo);
+    u4OldInodeNo = atoi(cInode);
 
     InodeInit(fd);
-    InodeCopyFile(u4OldInodeNo);
+    InodeCopyFile(fd, u4OldInodeNo, name);
     InodeInitExit();
-    */
 }
 

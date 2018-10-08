@@ -30,34 +30,33 @@
  **************************************************************************/
 VOID main(INT4 argc, CHAR** argv )
 {
-    CHAR *pDev;
-    CHAR *cInode;
-    CHAR *name;
+    CHAR *Partition;
+    CHAR *InodeString;
+    CHAR *FileName;
     INT4 fd;
     UINT4 u4OldInodeNo;
 
     if (argc < 4)
     {
-        printf("usage example: sudo ./copyfile /dev/sdX1 inodeNumToCopy newFileName\n");
-        //return -1;
-    } else if (argc >= 4)
-    {
-        pDev = argv[1];
-        cInode = argv[2];
-        name = argv[3];
+        printf("Example usage: sudo ./copyfile <partition> <fileinode> <newfilename>\n");
+        return;
+    } else if (argc >= 4) {
+	Partition = argv[1];
+	InodeString = argv[2];
+	FileName = argv[3];
     }
 
-    fd = open(pDev, O_RDWR);
-    if (fd < 0)
-    {
+    printf("Args: partition: %s inode: %s, filename: %s\n", Partition, InodeString, FileName);
+    fd = open(Partition, O_RDWR);
+    if(fd < 0){
         perror("Error opening file");
         return;
     }
 
-    u4OldInodeNo = atoi(cInode);
+    u4OldInodeNo = atoi(InodeString);
 
     InodeInit(fd);
-    CopyFileInode(fd, u4OldInodeNo, name);
+    CopyFileUtilCopyFile(fd, u4OldInodeNo, FileName);
     InodeInitExit();
 }
 

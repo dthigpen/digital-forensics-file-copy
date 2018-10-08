@@ -96,7 +96,7 @@ INT4 ClaimFreeInode(UINT4* u4ClaimedInodeNo) {
 							return INODE_FAILURE;
 						}
 						
-						*u4ClaimedInodeNo = (u4GroupNo * sb.s_inodes_per_group) + ((i * BYTE) + j);
+						*u4ClaimedInodeNo = (u4GroupNo * sb.s_inodes_per_group) + ((i * BYTE) + j + 1);
 						return INODE_SUCCESS;
 					}
 				}

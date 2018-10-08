@@ -36,20 +36,20 @@ VOID main(INT4 argc, CHAR** argv )
     INT4 fd;
     UINT4 u4OldInodeNo;
 
-
     if (argc < 4)
     {
-        printf("Enter disk name as command line argument. e.g - sudo ./copyfile /dev/sda1 filepath\n");
+        printf("usage example: sudo ./copyfile /dev/sdX1 inodeNumToCopy newFileName\n");
         //return -1;
-    } else if (argc >= 4) {
-	pDev = argv[1];
-	cInode = argv[2];
-	name = argv[3];
+    } else if (argc >= 4)
+    {
+        pDev = argv[1];
+        cInode = argv[2];
+        name = argv[3];
     }
 
-    printf("Args: dev: %s inode: %s\n",pDev,cInode);
     fd = open(pDev, O_RDWR);
-    if(fd < 0){
+    if (fd < 0)
+    {
         perror("Error opening file");
         return;
     }
@@ -57,7 +57,7 @@ VOID main(INT4 argc, CHAR** argv )
     u4OldInodeNo = atoi(cInode);
 
     InodeInit(fd);
-    InodeCopyFile(fd, u4OldInodeNo, name);
+    CopyFileInode(fd, u4OldInodeNo, name);
     InodeInitExit();
 }
 

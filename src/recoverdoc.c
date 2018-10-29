@@ -55,7 +55,7 @@ INT4 RecoverDocFindSignatures() {
 				for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
 				{
 					i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-					if (1 || i1IsBitUsed == 0)
+					if (i1IsBitUsed == 0)
 					{
                         u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
                             InodeUtilReadDataBlock(u4DataBlockNumber, 0, blockBuffer, gu4BlockSize);

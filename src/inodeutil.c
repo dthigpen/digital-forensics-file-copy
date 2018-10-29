@@ -549,76 +549,76 @@ INT4 InodeUtilReadInode(UINT4 u4InodeNo, struct ext3_inode *pNewInode) {
 // * Returns       : None
 // *
 // **************************************************************************/
-//VOID InodeUtilDumpInode(struct ext3_inode *pInode) {
-//    UINT4 u4Index = 0;
-//    printf(" i_mode = %hu\n", pInode->i_mode);
-//    printf(" i_uid = %hu\n", pInode->i_uid);
-//    printf(" i_size = %u\n", pInode->i_size);
-//    printf(" i_atime = %u\n", pInode->i_atime);
-//    printf(" i_ctime = %u\n", pInode->i_ctime);
-//    printf(" i_mtime = %u\n", pInode->i_mtime);
-//    printf(" i_dtime = %u\n", pInode->i_dtime);
-//    printf(" i_gid = %hu\n", pInode->i_gid);
-//    printf(" i_links_count = %hu\n", pInode->i_links_count);
-//    printf(" i_blocks = %u\n", pInode->i_blocks);
-//
-//    for (u4Index = 0; u4Index < EXT3_N_BLOCKS; u4Index++) {
-//        printf("    i_block[%d] = %u\n", u4Index, pInode->i_block[u4Index]);
-//    }
-//    printf(" i_flags = %u\n", pInode->i_flags);
-//    printf(" i_generation = %u\n", pInode->i_generation);
-//    printf(" i_file_acl = %u\n", pInode->i_file_acl);
-//    printf(" i_dir_acl = %u\n", pInode->i_dir_acl);
-//    printf(" i_faddr = %u\n", pInode->i_faddr);
-//    printf(" i_extra_isize = %hu\n", pInode->i_extra_isize);
-//    printf(" i_pad1 = %hu\n", pInode->i_pad1);
-//}
-//
-///*! *************************************************************************
-// * Function Name : InodeUtilDumpDataBlockRaw 
-// *
-// * Author        : Naveen Raj Selvaraj
-// *
-// * Description   : This Function is used to print the content of a block in HEX
-// *
-// * Input         : pBuffer  -   buffer containing the data block contents
-// *
-// * Output        : None
-// * 
-// * Returns       : None 
-// *
-// **************************************************************************/
-//VOID InodeUtilDumpDataBlockRaw(CHAR *pBuffer) {
-//    UINT4 u4Index1 = 0;
-//    UINT4 u4Index2 = 0;
-//    for (u4Index1 = 0; u4Index1 < gu4BlockSize; u4Index1++) {
-//        fprintf(stdout, " %02X", (unsigned char) pBuffer[u4Index1]);
-//        u4Index2 += 1;
-//        if (u4Index2 == 16) {
-//            fprintf(stdout, "\n");
-//            u4Index2 = 0;
-//        }
-//    }
-//    /* fprintf(stdout, "\n\n"); */
-//}
-//
-//
-///*! *************************************************************************
-// * Function Name : InodeUtilGetInodeOffset 
-// *
-// * Author        : Naveen Raj Selvaraj
-// *
-// * Description   : This Function is used to convert the given inode number into
-// *                 byte offset
-// *
-// * Input         : u4InodeNo    -   Inode number
-// *
-// * Output        : pu8Offset    -   byte offset 
-// * 
-// * Returns       : INODE_SUCCESS, if the byte offset can be calculated 
-// *                 INODE_FAILURE otherwise
-// *
-// **************************************************************************/
+VOID InodeUtilDumpInode(struct ext3_inode *pInode) {
+   UINT4 u4Index = 0;
+   printf(" i_mode = %hu\n", pInode->i_mode);
+   printf(" i_uid = %hu\n", pInode->i_uid);
+   printf(" i_size = %u\n", pInode->i_size);
+   printf(" i_atime = %u\n", pInode->i_atime);
+   printf(" i_ctime = %u\n", pInode->i_ctime);
+   printf(" i_mtime = %u\n", pInode->i_mtime);
+   printf(" i_dtime = %u\n", pInode->i_dtime);
+   printf(" i_gid = %hu\n", pInode->i_gid);
+   printf(" i_links_count = %hu\n", pInode->i_links_count);
+   printf(" i_blocks = %u\n", pInode->i_blocks);
+
+   for (u4Index = 0; u4Index < EXT3_N_BLOCKS; u4Index++) {
+       printf("    i_block[%d] = %u\n", u4Index, pInode->i_block[u4Index]);
+   }
+   printf(" i_flags = %u\n", pInode->i_flags);
+   printf(" i_generation = %u\n", pInode->i_generation);
+   printf(" i_file_acl = %u\n", pInode->i_file_acl);
+   printf(" i_dir_acl = %u\n", pInode->i_dir_acl);
+   printf(" i_faddr = %u\n", pInode->i_faddr);
+   printf(" i_extra_isize = %hu\n", pInode->i_extra_isize);
+   printf(" i_pad1 = %hu\n", pInode->i_pad1);
+}
+
+/*! *************************************************************************
+* Function Name : InodeUtilDumpDataBlockRaw 
+*
+* Author        : Naveen Raj Selvaraj
+*
+* Description   : This Function is used to print the content of a block in HEX
+*
+* Input         : pBuffer  -   buffer containing the data block contents
+*
+* Output        : None
+* 
+* Returns       : None 
+*
+**************************************************************************/
+VOID InodeUtilDumpDataBlockRaw(CHAR *pBuffer) {
+   UINT4 u4Index1 = 0;
+   UINT4 u4Index2 = 0;
+   for (u4Index1 = 0; u4Index1 < gu4BlockSize; u4Index1++) {
+       fprintf(stdout, " %02X", (unsigned char) pBuffer[u4Index1]);
+       u4Index2 += 1;
+       if (u4Index2 == 16) {
+           fprintf(stdout, "\n");
+           u4Index2 = 0;
+       }
+   }
+   /* fprintf(stdout, "\n\n"); */
+}
+
+
+/*! *************************************************************************
+* Function Name : InodeUtilGetInodeOffset 
+*
+* Author        : Naveen Raj Selvaraj
+*
+* Description   : This Function is used to convert the given inode number into
+*                 byte offset
+*
+* Input         : u4InodeNo    -   Inode number
+*
+* Output        : pu8Offset    -   byte offset 
+* 
+* Returns       : INODE_SUCCESS, if the byte offset can be calculated 
+*                 INODE_FAILURE otherwise
+*
+**************************************************************************/
 INT4 InodeUtilGetInodeOffset(UINT4 u4InodeNo, UINT8 *pu8Offset) {
     struct ext3_inode Inode;
     struct ext3_group_desc GroupDes;

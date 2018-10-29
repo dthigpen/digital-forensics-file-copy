@@ -21,7 +21,7 @@ const CHAR* pptFooter = "50006F0077006500720050006F0069006E007400200044006F00630
 
 INT4 RecoverDocFindSignatures() {
 	UINT8 u8GbdOffset;
-    UINT4 u4GroupNo;
+    UINT4 u4GroupNo = 0;
 	UINT4 u4ByteIndex, u4BitIndex;
     UINT1 pBuffer[gu4BlockSize];
 	INT1 i1IsBitUsed;
@@ -29,10 +29,10 @@ INT4 RecoverDocFindSignatures() {
     UINT4* u4InodeNumber;
     struct ext3_inode pNewInode;
     UINT1 blockBuffer[gu4BlockSize];
-    
-    u4GroupNo = 0;
+    UINT4 u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
+    printf("Total block groups: %d\n", u4NumBlockGroups);
 	// Loop through block groups until a free inode is found
-	while (u4GroupNo < 2)
+	while (u4GroupNo <= u4NumBlockGroups)
 	{
 		memset(&GroupDes, 0, sizeof(GroupDes));
     		u8GbdOffset = gu4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
@@ -46,7 +46,8 @@ INT4 RecoverDocFindSignatures() {
 			printf("ERROR: Failed to read Block %s:%d\n", __FILE__, __LINE__);
 			return INODE_FAILURE;
 		}
-		for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
+		printf("Scanning block group %d\n", u4GroupNo);
+        for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
 	    		if (pBuffer[u4ByteIndex] != FULL_BYTE)
@@ -55,7 +56,7 @@ INT4 RecoverDocFindSignatures() {
 				for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
 				{
 					i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-					if (i1IsBitUsed == 0)
+					if (i1IsBitUsed == 0 || 1)
 					{
                         u4InodeNumber = (u4GroupNo * sb.s_inodes_per_group) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
                         // printf("Inode Number: %d\n",u4InodeNumber);

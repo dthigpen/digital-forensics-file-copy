@@ -26,22 +26,21 @@ INT4 RecoverDocFindSignatures() {
     UINT1 pBuffer[gu4BlockSize];
 	INT1 i1IsBitUsed;
 	struct ext3_group_desc GroupDes;
-    UINT4* u4InodeNumber;
-    struct ext3_inode pNewInode;
+    UINT4 u4DataBlockNumber;
     UINT1 blockBuffer[gu4BlockSize];
     UINT4 u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     printf("Total block groups: %d\n", u4NumBlockGroups);
-	// Loop through block groups until a free inode is found
+	// Loop through block groups until a free datablock is found
 	while (u4GroupNo <= u4NumBlockGroups)
 	{
-		memset(&GroupDes, 0, sizeof(GroupDes));
+		memset(&GroupDes, 0, sizeof(struct ext3_group_desc));
     		u8GbdOffset = gu4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
     		if (InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc)) == INODE_FAILURE)
 		{
     		    printf("ERROR: Failed to read Block group descriptor table %s:%d\n", __FILE__, __LINE__);
     		    return INODE_FAILURE;
     		}
-		if (InodeUtilReadDataBlock(GroupDes.bg_inode_bitmap, 0, pBuffer, gu4BlockSize) == INODE_FAILURE)
+		if (InodeUtilReadDataBlock(GroupDes.bg_block_bitmap, 0, pBuffer, gu4BlockSize) == INODE_FAILURE)
 		{
 			printf("ERROR: Failed to read Block %s:%d\n", __FILE__, __LINE__);
 			return INODE_FAILURE;
@@ -50,38 +49,27 @@ INT4 RecoverDocFindSignatures() {
         for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
-	    		if (pBuffer[u4ByteIndex] != FULL_BYTE)
+	    		if (pBuffer[u4ByteIndex] != BYTE)
 			{
 				// If byte is not all 1's, find the first free bit
 				for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
 				{
 					i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-					if (i1IsBitUsed == 0 || 1)
+					if (1 || i1IsBitUsed == 0)
 					{
-                        u4InodeNumber = (u4GroupNo * sb.s_inodes_per_group) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
-                        // printf("Inode Number: %d\n",u4InodeNumber);
-                        memset(&pNewInode, 0, sizeof(pNewInode));
-
-                        if(InodeUtilReadInode(u4InodeNumber, &pNewInode) == INODE_FAILURE) {
-                            printf("ERROR: Error reading inode %s:%d\n", __FILE__, __LINE__);
-							return INODE_FAILURE;
-                        }
-                        UINT4 blocknum;
-                            UINT1 foundFile = 0;
-                            InodeUtilReadDataBlock(pNewInode.i_block[blocknum], 0, blockBuffer, gu4BlockSize);
-                            
+                        u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
+                            InodeUtilReadDataBlock(u4DataBlockNumber, 0, blockBuffer, gu4BlockSize);
                             if(HasHexSignatureAtOffset(blockBuffer, header, 0)) {
+                                printf("Data block number: %d\n", u4DataBlockNumber);
                                 printf("Office header found\n");
                                 if(HasHexSignatureAtOffset(blockBuffer, wordSubtype , 512)){
                                     printf("type: .doc\n");
-                                    foundFile = 1;
                                 }else if(HasHexSignatureAtOffset(blockBuffer, pptSubtype1 , 512)
                                 || HasHexSignatureAtOffset(blockBuffer, pptSubtype2 , 512)
                                 || HasHexSignatureAtOffset(blockBuffer, pptSubtype3 , 512)
                                 || (HasHexSignatureAtOffset(blockBuffer, pptSubtype4a , 512)
                                     && HasHexSignatureAtOffset(blockBuffer, pptSubtype4b , 518))){
                                     printf("type: .ppt\n");
-                                    foundFile = 1;
                                 }else if((HasHexSignatureAtOffset(blockBuffer, xlsSubtype1a , 512)
                                     && HasHexSignatureAtOffset(blockBuffer, xlsSubtype1b , 517))
                                 || (HasHexSignatureAtOffset(blockBuffer, xlsSubtype2a , 512)
@@ -89,11 +77,8 @@ INT4 RecoverDocFindSignatures() {
                                 || HasHexSignatureAtOffset(blockBuffer, xlsSubtype3 , 512)
                                 || HasHexSignatureAtOffset(blockBuffer, xlsSubtype4 , 512)){
                                     printf("type: .xls\n");
-                                    foundFile = 1;
                                 }
-                                if(foundFile){   
-                                    InodeUtilDumpInode(&pNewInode);
-                                }
+                                printf("\n");
                             }
 					}
 				}

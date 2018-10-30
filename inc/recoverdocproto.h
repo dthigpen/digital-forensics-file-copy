@@ -10,5 +10,5 @@
 /*****************************************************************************/
 /*                          recoverdoc.c                                  */
 /*****************************************************************************/
-INT4 HasHexSignatureAtOffset(UINT1 *buffer, const CHAR *hexSigInASCII, UINT4 u4DecOffset);
+UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size);
 INT4 RecoverDocFindSignatures();

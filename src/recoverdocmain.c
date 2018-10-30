@@ -3,27 +3,25 @@
 
 VOID main(INT4 argc, CHAR** argv )
 {
-    CHAR *Partition;
-    CHAR *InodeString;
-    CHAR *FileName;
     INT4 fd;
-    UINT4 u4OldInodeNo;
+    UINT1 u1SearchFlags = 2;
 
     if (argc < 2)
     {
-        printf("Example usage: sudo ./recoverdoc <partition>\n");
+        printf("Example usage: sudo ./recoverdoc <partition> <searchflag>\n");
+        printf("\t <searchflag> values: 0 (search free data blocks)\n");
+        printf("\t              values: 1 (search used data blocks)\n");
+        printf("\t              values: 2 (search all data blocks) (default)\n");
         return;
-    } else if (argc >= 4) {
-	Partition = argv[1];
-    }
-    printf("Args: partition: %s\n", argv[1]);
-    
+    } else if (argc > 2) {
+    u1SearchFlags = atoi(argv[2]);
+    }  
     fd = open(argv[1], O_RDWR);
     if(fd < 0){
         perror("Error opening file");
         return;
     }
     InodeInit(fd);
-    RecoverDocFindSignatures();
+    RecoverDocFindSignatures(u1SearchFlags);
     InodeInitExit();
 }

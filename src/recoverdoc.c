@@ -4,14 +4,14 @@
 // signatures reference http://sceweb.sce.uhcl.edu/abeysekera/itec3831/labs/FILE%20SIGNATURES%20TABLE.pdf
 // Generic Document type header for .doc, .ppt, .xls
 UINT1 abSigValue[8] = {0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1};
-UINT2 uMinorVersion; // could be anything
+UINT2 uMinorVersion;
 UINT2 uDllVersionValue1 = 0x0003; 
 UINT2 uDllVersionValue2 = 0x0004;
 UINT2 uByteOrderValue1 = 0xFEFF;
 UINT2 uByteOrderValue2 = 0xFFFE;
-UINT2 uSectorShiftValue1 = 0x09; // typically 9 or 12 depending on major version
+UINT2 uSectorShiftValue1 = 0x09;
 UINT2 uSectorShiftValue2 = 0x0C; 
-UINT2 uMiniSectorShiftValue; // typically 12
+UINT2 uMiniSectorShiftValue;
 UINT2 usReservedValue = 0;
 UINT4 ulReserved1Value = 0;
 UINT4 ulReserved2Value = 0;
@@ -93,7 +93,6 @@ VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
 
 
 UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size){
-    // size_t size = sizeof(u1CorrectValues) / sizeof(UINT1);
     UINT4 i;
     for(i = 0; i < size; i++){
         if(u1ActualValues[i] != u1CorrectValues[i]){
@@ -102,7 +101,7 @@ UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, si
     }
     return 1;
 }
-// searchFlag: 0 (search free data blocks), 0 (search used data blocks), 2 (search all data blocks)
+// searchFlag: 0 (search free data blocks), 1 (search used data blocks), 2 (search all data blocks)
 INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
 	UINT8 u8GbdOffset;
     UINT4 u4GroupNo = 0;
@@ -138,14 +137,14 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
         for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
-	    		if (pBuffer[u4ByteIndex] != BYTE)
-			{
-				// If byte is not all 1's, find the first free bit
-				for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
-				{
-					i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-					if (u1SearchFlags == 2 || i1IsBitUsed == 0)
-					{
+            if (pBuffer[u4ByteIndex] != BYTE)
+            {
+                // If byte is not all 1's, find the first free bit
+                for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
+                {
+                    i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
+                    if (u1SearchFlags == 2 || i1IsBitUsed == u1SearchFlags)
+                    {
                         u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
                         InodeUtilReadDataBlock(u4DataBlockNumber, 0, blockBuffer, gu4BlockSize);
                         memset(&storageHeader, 0, sizeof(struct StructuredStorageHeader));
@@ -154,15 +153,15 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                         {
                             printf("Windows Compound Binary File Format Found\n");
                             if((storageHeader._uDllVersion == uDllVersionValue1
-                                || storageHeader._uDllVersion == uDllVersionValue2)
-                            && storageHeader._usReserved == usReservedValue
-                            && storageHeader._ulReserved1 == ulReserved1Value
-                            && storageHeader._ulReserved2 == ulReserved2Value
-                            && ((storageHeader._uDllVersion == uDllVersionValue1
-                                && storageHeader._uSectorShift == uSectorShiftValue1)
-                                || (storageHeader._uDllVersion == uDllVersionValue2
-                                && storageHeader._uSectorShift == uSectorShiftValue2)))
-                                {
+                                    || storageHeader._uDllVersion == uDllVersionValue2)
+                                && storageHeader._usReserved == usReservedValue
+                                && storageHeader._ulReserved1 == ulReserved1Value
+                                && storageHeader._ulReserved2 == ulReserved2Value
+                                && ((storageHeader._uDllVersion == uDllVersionValue1
+                                    && storageHeader._uSectorShift == uSectorShiftValue1)
+                                    || (storageHeader._uDllVersion == uDllVersionValue2
+                                    && storageHeader._uSectorShift == uSectorShiftValue2))){
+
                                 printf("Data block number: %d\n", u4DataBlockNumber);
                                 if(u1MatchesSignatureValues(blockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1))){
                                     printf("type: .doc\n");
@@ -185,10 +184,9 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                                 DumpCompoundBinaryFileHeader(&storageHeader);
                             }
                         }
-					
                     }
-				}
-			}
+                }
+            }
 		}
 		u4GroupNo++;
 	}

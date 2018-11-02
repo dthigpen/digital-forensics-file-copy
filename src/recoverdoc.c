@@ -34,42 +34,17 @@ UINT1 pptFooterValue[37] = {0x50, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x65, 0x00, 0x72
 const CHAR* wordFooter =  "576F72642E446F63756D656E742E";
 const CHAR* pptFooter = "50006F0077006500720050006F0069006E007400200044006F00630075006D0065006E0074";
 
-struct StructuredStorageHeader {
-    UINT1 _abSig[8]; // [offset from start in bytes, length in bytes]
-    // [000H,08] {0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1} for current version,
-    // was {0x0e, 0x11, 0xfc, 0x0d, 0xd0, 0xcf, 0x11, 0xe0} on old, beta 2 files (late ’92)
-    UINT1 _clid[16]; // [008H,16] class id (set with WriteClassStg, retrieved with GetClassFile/ReadClassStg)
-    UINT2 _uMinorVersion; // [018H,02] minor version of the format: 33 is written by reference implementation
-    UINT2 _uDllVersion; // [01AH,02] major version of the dll/format: 3 is written by reference implementation
-    UINT2 _uByteOrder; // [01CH,02] 0xFFFE: indicates Intel byte-ordering
-    UINT2 _uSectorShift; // [01EH,02] size of sectors in power-of-two (typically 9, indicating 512-byte sectors)
-    UINT2 _uMiniSectorShift; // [020H,02] size of mini-sectors in power-of-two (typically 6, indicating 64-byte mini-sectors)
-    UINT2 _usReserved; // [022H,02] reserved, must be zero
-    UINT4 _ulReserved1; // [024H,04] reserved, must be zero
-    UINT4 _ulReserved2; // [028H,04] reserved, must be zero
-    UINT4 _csectFat; // [02CH,04] number of SECTs in the FAT chain
-    UINT4 _sectDirStart; // [030H,04] first SECT in the Directory chain
-    UINT4 _signature; // [034H,04] signature used for transactionin: must be zero. 
-    UINT4 _ulMiniSectorCutoff; // [038H,04] maximum size for mini-streams: typically 4096 bytes
-    UINT4 _sectMiniFatStart; // [03CH,04] first SECT in the mini-FAT chain
-    UINT4 _csectMiniFat; // [040H,04] number of SECTs in the mini-FAT chain
-    UINT4 _sectDifStart; // [044H,04] first SECT in the DIF chain
-    UINT4 _csectDif; // [048H,04] number of SECTs in the DIF chain
-    UINT4 _sectFat[109]; // [04CH,436] the SECTs of the first 109 FAT sectors
-};
-
-
 VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
-    UINT1 i;
+    UINT1 u1Index1;
     printf("Header Fields (hex)\n");
     printf("_abSig: ");
-    for(i = 0; i < (sizeof(header->_abSig) / sizeof(UINT1)); i++){
-        printf("%x", header->_abSig[i]);
+    for(u1Index1 = 0; u1Index1 < (sizeof(header->_abSig) / sizeof(UINT1)); u1Index1++){
+        printf("%x", header->_abSig[u1Index1]);
     }
     printf("\n");
     printf("_clid: ");
-    for(i = 0; i < (sizeof(header->_clid) / sizeof(UINT1)); i++){
-        printf("%x", header->_clid[i]);
+    for(u1Index1 = 0; u1Index1 < (sizeof(header->_clid) / sizeof(UINT1)); u1Index1++){
+        printf("%x", header->_clid[u1Index1]);
     }
     printf("\n");
     printf("_uMinorVersion: %x\n", header->_uMinorVersion); 
@@ -93,9 +68,9 @@ VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
 
 
 UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size){
-    UINT4 i;
-    for(i = 0; i < size; i++){
-        if(u1ActualValues[i] != u1CorrectValues[i]){
+    UINT4 u4Index1;
+    for(u4Index1 = 0; u4Index1 < size; u4Index1++){
+        if (u1ActualValues[u4Index1] != u1CorrectValues[u4Index1]){
             return 0;
         }
     }
@@ -104,7 +79,7 @@ UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, si
 // searchFlag: 0 (search free data blocks), 1 (search used data blocks), 2 (search all data blocks)
 INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
 	UINT8 u8GbdOffset;
-    UINT4 u4GroupNo = 0;
+    UINT4 u4GroupNo;
 	UINT4 u4ByteIndex, u4BitIndex;
     UINT1 pBuffer[gu4BlockSize];
 	INT1 i1IsBitUsed;
@@ -112,13 +87,15 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
     struct StructuredStorageHeader storageHeader;
     UINT4 u4DataBlockNumber;
     UINT1 blockBuffer[gu4BlockSize];
-    UINT4 u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
+    UINT4 u4NumBlockGroups;
+    u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     
-    if(u1SearchFlags != 0 && u1SearchFlags != 1 && u1SearchFlags != 2){
+    if (u1SearchFlags != 0 && u1SearchFlags != 1 && u1SearchFlags != 2){
         u1SearchFlags = 0;
     }
     printf("Total block groups: %d\n", u4NumBlockGroups);
 	// Loop through block groups until a free datablock is found
+    u4GroupNo = 0;
 	while (u4GroupNo <= u4NumBlockGroups)
 	{
 		memset(&GroupDes, 0, sizeof(struct ext3_group_desc));
@@ -137,22 +114,23 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
         for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
-            if (pBuffer[u4ByteIndex] != BYTE)
+            if (pBuffer[u4ByteIndex] != BYTE || u1SearchFlags != SCAN_FREE_BLOCKS)
             {
                 // If byte is not all 1's, find the first free bit
                 for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
                 {
                     i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-                    if (u1SearchFlags == 2 || i1IsBitUsed == u1SearchFlags)
+                    if (u1SearchFlags == SCAN_ALL_BLOCKS || i1IsBitUsed == u1SearchFlags)
                     {
                         u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
                         InodeUtilReadDataBlock(u4DataBlockNumber, 0, blockBuffer, gu4BlockSize);
                         memset(&storageHeader, 0, sizeof(struct StructuredStorageHeader));
                         memcpy(&storageHeader, blockBuffer, 512);
-                        if(u1MatchesSignatureValues(storageHeader._abSig, abSigValue,sizeof(abSigValue) / sizeof(UINT1)))
+                        if (u1MatchesSignatureValues(storageHeader._abSig, abSigValue,sizeof(abSigValue) / sizeof(UINT1)))
                         {
                             printf("Windows Compound Binary File Format Found\n");
-                            if((storageHeader._uDllVersion == uDllVersionValue1
+                            printf("Data block number: %d\n", u4DataBlockNumber);
+                            if ((storageHeader._uDllVersion == uDllVersionValue1
                                     || storageHeader._uDllVersion == uDllVersionValue2)
                                 && storageHeader._usReserved == usReservedValue
                                 && storageHeader._ulReserved1 == ulReserved1Value
@@ -160,27 +138,32 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                                 && ((storageHeader._uDllVersion == uDllVersionValue1
                                     && storageHeader._uSectorShift == uSectorShiftValue1)
                                     || (storageHeader._uDllVersion == uDllVersionValue2
-                                    && storageHeader._uSectorShift == uSectorShiftValue2))){
-
-                                printf("Data block number: %d\n", u4DataBlockNumber);
-                                if(u1MatchesSignatureValues(blockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1))){
+                                    && storageHeader._uSectorShift == uSectorShiftValue2)))
+                                {
+                                if (u1MatchesSignatureValues(blockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
+                                {
                                     printf("type: .doc\n");
                                 }
-                                else if(u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
+                                else if (u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
                                 || u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue2, sizeof(pptSubtypeValue2) / sizeof(UINT1))
                                 || u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue3, sizeof(pptSubtypeValue3) / sizeof(UINT1))
                                 || (u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue4a, sizeof(pptSubtypeValue4a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(blockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1)))){
+                                    && u1MatchesSignatureValues(blockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1))))
+                                    {
                                     printf("type: .ppt\n");
-                                }else if((u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
+                                }
+                                else if ((u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
                                     && u1MatchesSignatureValues(blockBuffer + 517, xlsSubtypeValue1b, sizeof(xlsSubtypeValue1b) / sizeof(UINT1)))
                                 || (u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue2a, sizeof(xlsSubtypeValue2a) / sizeof(UINT1))
                                     && u1MatchesSignatureValues(blockBuffer + 517, xlsSubtypeValue2b, sizeof(xlsSubtypeValue2b) / sizeof(UINT1)))
                                 || u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue3, sizeof(xlsSubtypeValue3) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1))){
+                                || u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1)))
+                                {
                                     printf("type: .xls\n");
                                 }
-                            }else{
+                            }
+                            else
+                            {
                                 DumpCompoundBinaryFileHeader(&storageHeader);
                             }
                         }

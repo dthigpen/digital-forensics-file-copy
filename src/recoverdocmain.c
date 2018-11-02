@@ -4,11 +4,11 @@
 VOID main(INT4 argc, CHAR** argv )
 {
     INT4 fd;
-    UINT1 u1SearchFlags = 2;
+    UINT1 u1SearchFlags = SCAN_FREE_BLOCKS;
 
     if (argc < 2)
     {
-        printf("Example usage: sudo ./recoverdoc <partition> <searchflag>\n");
+        printf("Example usage: sudo ./recoverdoc <partition> <optional-searchflag>\n");
         printf("\t <searchflag> values: 0 (search free data blocks)\n");
         printf("\t              values: 1 (search used data blocks)\n");
         printf("\t              values: 2 (search all data blocks) (default)\n");

@@ -13,4 +13,6 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include "cmninc.h"
+#include "recoverdocdef.h"
+#include "recoverdoctdfs.h"
 #include "recoverdocproto.h"

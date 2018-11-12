@@ -11,7 +11,7 @@ struct StructuredStorageHeader {
     UINT2 _uMiniSectorShift; // [020H,02] size of mini-sectors in power-of-two (typically 6, indicating 64-byte mini-sectors)
     UINT2 _usReserved; // [022H,02] reserved, must be zero
     UINT4 _ulReserved1; // [024H,04] reserved, must be zero
-    UINT4 _ulReserved2; // [028H,04] reserved, must be zero
+    UINT4 _csectDir; // [028H,04] number of SECTs in the Directory chain
     UINT4 _csectFat; // [02CH,04] number of SECTs in the FAT chain
     UINT4 _sectDirStart; // [030H,04] first SECT in the Directory chain
     UINT4 _signature; // [034H,04] signature used for transactionin: must be zero. 

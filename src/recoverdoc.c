@@ -11,7 +11,7 @@ UINT2 uByteOrderValue1 = 0xFEFF;
 UINT2 uByteOrderValue2 = 0xFFFE;
 UINT2 uSectorShiftValue1 = 0x09;
 UINT2 uSectorShiftValue2 = 0x0C; 
-UINT2 uMiniSectorShiftValue;
+UINT2 uMiniSectorShiftValue = 0x0006;
 UINT2 usReservedValue = 0;
 UINT4 ulReserved1Value = 0;
 UINT4 ulReserved2Value = 0;
@@ -21,7 +21,7 @@ UINT1 wordSubtypeValue[4] = {0xEC, 0xA5, 0xC1, 0x00};
 UINT1 xlsSubtypeValue1a[4] = {0xFD, 0xFF, 0xFF, 0xFF};
 UINT1 xlsSubtypeValue1b[1] = {0x00};
 UINT1 xlsSubtypeValue2a[4] = {0xFD, 0xFF, 0xFF, 0xFF};
-UINT1 xlsSubtypeValue2b[4] = {0x00};
+UINT1 xlsSubtypeValue2b[1] = {0x00};
 UINT1 xlsSubtypeValue3[8] = {0x09, 0x08, 0x10, 0x00, 0x00, 0x06, 0x05, 0x00};
 UINT1 xlsSubtypeValue4[8] = {0x09, 0x08, 0x08, 0x00, 0x00, 0x05, 0x05, 0x00};
 UINT1 pptSubtypeValue1[4] = {0xA0, 0x46, 0x1D, 0xF0};
@@ -55,7 +55,7 @@ VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
     printf("_usReserved: %x\n", header->_usReserved); 
     
     printf("_ulReserved1: %x\n", header->_ulReserved1); 
-    printf("_ulReserved2: %x\n", header->_ulReserved2); 
+    printf("_csectDir: %x\n", header->_csectDir); 
     printf("_csectFat: %x\n", header->_csectFat); 
     printf("_sectDirStart: %x\n", header->_sectDirStart); 
     printf("_signature: %x\n", header->_signature); 
@@ -134,11 +134,11 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                                     || storageHeader._uDllVersion == uDllVersionValue2)
                                 && storageHeader._usReserved == usReservedValue
                                 && storageHeader._ulReserved1 == ulReserved1Value
-                                && storageHeader._ulReserved2 == ulReserved2Value
                                 && ((storageHeader._uDllVersion == uDllVersionValue1
                                     && storageHeader._uSectorShift == uSectorShiftValue1)
                                     || (storageHeader._uDllVersion == uDllVersionValue2
-                                    && storageHeader._uSectorShift == uSectorShiftValue2)))
+                                    && storageHeader._uSectorShift == uSectorShiftValue2))
+                                && storageHeader._uMiniSectorShift == uMiniSectorShiftValue)
                                 {
                                 if (u1MatchesSignatureValues(blockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
                                 {

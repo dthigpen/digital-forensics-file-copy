@@ -66,6 +66,88 @@ VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
     printf("_csectDif: %x\n", header->_csectDif); 
 }
 
+UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
+    UINT8 u8GbdOffset;
+    UINT4 u4GroupNo;
+	UINT4 u4ByteIndex, u4BitIndex;
+    UINT1 pBuffer[gu4BlockSize];
+	INT1 i1IsBitUsed;
+	struct ext3_group_desc GroupDes;
+    struct StructuredStorageHeader storageHeader;
+    UINT4 u4DataBlockNumber;
+    UINT1 blockBuffer[gu4BlockSize];
+    UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
+    UINT4 u4NumBlockGroups;
+    u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
+    
+    if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
+        u1SearchFlags = SCAN_ALL_BLOCKS;
+    }
+    printf("Total block groups: %d\n", u4NumBlockGroups);
+	printf("Block size: %d\nAddresses Per Block: %d\n", gu4BlockSize, gu4BlockSize / 4);
+    
+    // Loop through block groups until a free datablock is found
+    u4GroupNo = 0;
+	while (u4GroupNo <= u4NumBlockGroups)
+	{
+		memset(&GroupDes, 0, sizeof(struct ext3_group_desc));
+    		u8GbdOffset = gu4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
+    		if (InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc)) == INODE_FAILURE)
+		{
+    		    printf("ERROR: Failed to read Block group descriptor table %s:%d\n", __FILE__, __LINE__);
+    		    return INODE_FAILURE;
+    		}
+		if (InodeUtilReadDataBlock(GroupDes.bg_block_bitmap, 0, pBuffer, gu4BlockSize) == INODE_FAILURE)
+		{
+			printf("ERROR: Failed to read Block %s:%d\n", __FILE__, __LINE__);
+			return INODE_FAILURE;
+		}
+		printf("Scanning block group %d\n", u4GroupNo);
+        for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
+		{
+			// Check each byte to see if it is all 1's (0xFF)
+            if (1 || pBuffer[u4ByteIndex] != BYTE || u1SearchFlags != SCAN_FREE_BLOCKS)
+            {
+                // If byte is not all 1's, find the first free bit
+                for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
+                {
+                    i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
+                    if (1 || u1SearchFlags == SCAN_ALL_BLOCKS || i1IsBitUsed == u1SearchFlags)
+                    {
+                        u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
+                        InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
+                        UINT4 u4AddressIndex;
+                        UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
+                        UINT1 u1IsIndirectBlock = 1;
+                        INT4 u4InOrderChecks = 0;
+                        INT4 u4TotalChecks = 512;
+                        for (u4AddressIndex = 1; u4AddressIndex < u4TotalChecks; u4AddressIndex++)
+                        {
+                            if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
+                            {
+                                u4LastAddress = u4IndirectAddrBuffer[u4AddressIndex];
+                                u4InOrderChecks += 1;
+                            }else
+                            {
+                            
+                            }
+                        }
+                        float percentOrdered = (float)u4InOrderChecks / u4TotalChecks;
+
+                        if(percentOrdered > 0.75)
+                        {
+                            printf("Indirect Block at block: %u (%0.2f)\n", u4DataBlockNumber, percentOrdered);
+                        }else{
+                            
+                        }
+                    }
+                }
+            }
+		}
+		u4GroupNo++;
+	}
+	return 0;
+}    
 
 UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size){
     UINT4 u4Index1;
@@ -90,8 +172,8 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
     UINT4 u4NumBlockGroups;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     
-    if (u1SearchFlags != 0 && u1SearchFlags != 1 && u1SearchFlags != 2){
-        u1SearchFlags = 0;
+    if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
+        u1SearchFlags = SCAN_ALL_BLOCKS;
     }
     printf("Total block groups: %d\n", u4NumBlockGroups);
 	// Loop through block groups until a free datablock is found

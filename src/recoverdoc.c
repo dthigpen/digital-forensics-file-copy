@@ -78,15 +78,14 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
     UINT4 u4NumBlockGroups;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     UINT4 u4BlockCount = 0;
-    UINT4 u4TotalAddressesToCheck = 512;
+    UINT4 u4TotalAddressesToCheck = 1024;
     float passingPercentOrderedAddresses = 0.75;
-    UINT2 u2MinimumOrderedAddresses = 5;
+    UINT2 u2MinimumOrderedAddresses = 4;
     
     if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
         u1SearchFlags = SCAN_ALL_BLOCKS;
     }
-    printf("Total block groups: %d\n", u4NumBlockGroups);
-	printf("Block size: %d\nAddresses Per Block: %d\n", gu4BlockSize, gu4BlockSize / 4);
+    printf("Indirect search parameters:\nMinimum in order addresses: %u\n# Addresses to check per block: %u\nPassing Percent of ordered Addresses: %1.2f\n\n",u2MinimumOrderedAddresses,u4TotalAddressesToCheck,passingPercentOrderedAddresses);
     
     // Loop through block groups until a free datablock is found
     u4GroupNo = 0;
@@ -105,6 +104,7 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
 			return INODE_FAILURE;
 		}
 		printf("Scanning block group %d\n", u4GroupNo);
+        printf("%10s %10s %10s %6s %10s %10s\n", "Indirect", "1st Addr", "Last Used","# Used", "LastInBlk", "(ordered/checked)");
         for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
 		{
 			// Check each byte to see if it is all 1's (0xFF)
@@ -154,7 +154,8 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
                                 //     u4BlockCount += 1;
                                 //     printf("%5u ", u4BlockCount);
                                 // }
-                                printf("Indirect block: %5u (%0.2f) First Addr: %6u  [%4u] Addr: %6u Last Addr: %6u\n", u4DataBlockNumber, percentOrdered, u4IndirectAddrBuffer[0],u4AddressIndex -1, u4LastOrderedAddress, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1]);
+                                // printf("Indirect block: %5u (%0.2f) First Addr: %6u  [%4u] Addr: %6u Last Addr: %6u\n", u4DataBlockNumber, percentOrdered, u4IndirectAddrBuffer[0],u4AddressIndex -1, u4LastOrderedAddress, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1]);
+                                printf("%10u %10u %10u %6u %10u %10.2f\n", u4DataBlockNumber, u4IndirectAddrBuffer[0], u4LastOrderedAddress,u4AddressIndex, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1], percentOrdered);
                             }
                         }
                     }

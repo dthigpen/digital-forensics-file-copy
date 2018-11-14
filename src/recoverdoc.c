@@ -79,6 +79,8 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
     UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
     UINT4 u4NumBlockGroups;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
+    UINT4 u4BlockCount = 0;
+    float passingPercentOrderedAddresses = 0.65;
     
     if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
         u1SearchFlags = SCAN_ALL_BLOCKS;
@@ -120,22 +122,35 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
                         UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
                         UINT1 u1IsIndirectBlock = 1;
                         INT4 u4InOrderChecks = 0;
-                        INT4 u4TotalChecks = 512;
-                        for (u4AddressIndex = 1; u4AddressIndex < u4TotalChecks; u4AddressIndex++)
+                        INT4 u4TotalAddressesToCheck = 256;
+                        INT4 u4TotalAddressesChecked = 0;
+                        
+                        
+                        for (u4AddressIndex = 1; u4AddressIndex < u4TotalAddressesToCheck; u4AddressIndex++)
                         {
-                            if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
+                            u4TotalAddressesChecked = u4AddressIndex;
+                            // if the two addresses are both 0 the block is not completely filled with addresses so break and look at percentage ordered thus far
+                            if(u4IndirectAddrBuffer[u4AddressIndex] == 0 && u4LastAddress == 0)
                             {
+                                break;
+                            } // check that the address is greater than the last address
+                            else if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
+                            {
+                                // update the last address
                                 u4LastAddress = u4IndirectAddrBuffer[u4AddressIndex];
                                 u4InOrderChecks += 1;
-                            }else
-                            {
-                            
+                            }else {
+                                // continue
                             }
                         }
-                        float percentOrdered = (float)u4InOrderChecks / u4TotalChecks;
-
-                        if(percentOrdered > 0.75)
+                        float percentOrdered = (float)u4InOrderChecks / u4TotalAddressesChecked;
+                        if(percentOrdered > passingPercentOrderedAddresses)
                         {
+                            // counts how many blocks past this point, used during debugging
+                            // if(u4DataBlockNumber >= 1553){
+                            //     u4BlockCount += 1;
+                            //     printf("%5u ", u4BlockCount);
+                            // }
                             printf("Indirect Block at block: %u (%0.2f)\n", u4DataBlockNumber, percentOrdered);
                         }else{
                             

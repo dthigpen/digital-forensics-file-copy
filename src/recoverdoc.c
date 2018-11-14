@@ -73,14 +73,14 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
     UINT1 pBuffer[gu4BlockSize];
 	INT1 i1IsBitUsed;
 	struct ext3_group_desc GroupDes;
-    struct StructuredStorageHeader storageHeader;
     UINT4 u4DataBlockNumber;
-    UINT1 blockBuffer[gu4BlockSize];
     UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
     UINT4 u4NumBlockGroups;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     UINT4 u4BlockCount = 0;
-    float passingPercentOrderedAddresses = 0.65;
+    UINT4 u4TotalAddressesToCheck = 512;
+    float passingPercentOrderedAddresses = 0.75;
+    UINT2 u2MinimumOrderedAddresses = 5;
     
     if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
         u1SearchFlags = SCAN_ALL_BLOCKS;
@@ -120,10 +120,9 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
                         InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
                         UINT4 u4AddressIndex;
                         UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
-                        UINT1 u1IsIndirectBlock = 1;
-                        INT4 u4InOrderChecks = 0;
-                        INT4 u4TotalAddressesToCheck = 256;
-                        INT4 u4TotalAddressesChecked = 0;
+                        UINT4 u4LastOrderedAddress = u4LastAddress;
+                        UINT4 u4InOrderChecks = 0;
+                        UINT4 u4TotalAddressesChecked = 0;
                         
                         
                         for (u4AddressIndex = 1; u4AddressIndex < u4TotalAddressesToCheck; u4AddressIndex++)
@@ -137,23 +136,26 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
                             else if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
                             {
                                 // update the last address
+                                u4LastOrderedAddress = u4LastAddress;
                                 u4LastAddress = u4IndirectAddrBuffer[u4AddressIndex];
                                 u4InOrderChecks += 1;
                             }else {
                                 // continue
                             }
+
                         }
                         float percentOrdered = (float)u4InOrderChecks / u4TotalAddressesChecked;
-                        if(percentOrdered > passingPercentOrderedAddresses)
+                        
+                        if(u4InOrderChecks > u2MinimumOrderedAddresses && percentOrdered > passingPercentOrderedAddresses)
                         {
-                            // counts how many blocks past this point, used during debugging
-                            // if(u4DataBlockNumber >= 1553){
-                            //     u4BlockCount += 1;
-                            //     printf("%5u ", u4BlockCount);
-                            // }
-                            printf("Indirect Block at block: %u (%0.2f)\n", u4DataBlockNumber, percentOrdered);
-                        }else{
-                            
+                            if(u4IndirectAddrBuffer[0] < sb.s_blocks_count  && u4LastOrderedAddress < sb.s_blocks_count){
+                                // counts how many blocks past this point, used during debugging
+                                // if(u4DataBlockNumber >= 1553){
+                                //     u4BlockCount += 1;
+                                //     printf("%5u ", u4BlockCount);
+                                // }
+                                printf("Indirect block: %5u (%0.2f) First Addr: %6u  [%4u] Addr: %6u Last Addr: %6u\n", u4DataBlockNumber, percentOrdered, u4IndirectAddrBuffer[0],u4AddressIndex -1, u4LastOrderedAddress, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1]);
+                            }
                         }
                     }
                 }

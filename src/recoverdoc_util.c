@@ -34,39 +34,8 @@ UINT1 pptFooterValue[37] = {0x50, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x65, 0x00, 0x72
 const CHAR* wordFooter =  "576F72642E446F63756D656E742E";
 const CHAR* pptFooter = "50006F0077006500720050006F0069006E007400200044006F00630075006D0065006E0074";
 
-VOID DumpCompoundBinaryFileHeader(struct StructuredStorageHeader* header){
-    UINT1 u1Index1;
-    printf("Header Fields (hex)\n");
-    printf("_abSig: ");
-    for(u1Index1 = 0; u1Index1 < (sizeof(header->_abSig) / sizeof(UINT1)); u1Index1++){
-        printf("%x", header->_abSig[u1Index1]);
-    }
-    printf("\n");
-    printf("_clid: ");
-    for(u1Index1 = 0; u1Index1 < (sizeof(header->_clid) / sizeof(UINT1)); u1Index1++){
-        printf("%x", header->_clid[u1Index1]);
-    }
-    printf("\n");
-    printf("_uMinorVersion: %x\n", header->_uMinorVersion); 
-    printf("_uDllVersion: %x\n", header->_uDllVersion); 
-    printf("_uByteOrder: %x\n", header->_uByteOrder); 
-    printf("_uSectorShift: %x\n", header->_uSectorShift); 
-    printf("_uMiniSectorShift: %x\n", header->_uMiniSectorShift); 
-    printf("_usReserved: %x\n", header->_usReserved); 
-    
-    printf("_ulReserved1: %x\n", header->_ulReserved1); 
-    printf("_csectDir: %x\n", header->_csectDir); 
-    printf("_csectFat: %x\n", header->_csectFat); 
-    printf("_sectDirStart: %x\n", header->_sectDirStart); 
-    printf("_signature: %x\n", header->_signature); 
-    printf("_ulMiniSectorCutoff: %x\n", header->_ulMiniSectorCutoff); 
-    printf("_sectMiniFatStart: %x\n", header->_sectMiniFatStart); 
-    printf("_csectMiniFat: %x\n", header->_csectMiniFat); 
-    printf("_sectDifStart: %x\n", header->_sectDifStart); 
-    printf("_csectDif: %x\n", header->_csectDif); 
-}
 
-UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
+/*UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
     UINT8 u8GbdOffset;
     UINT4 u4GroupNo;
 	UINT4 u4ByteIndex, u4BitIndex;
@@ -165,7 +134,7 @@ UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
 		u4GroupNo++;
 	}
 	return 0;
-}    
+}    */
 
 UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size){
     UINT4 u4Index1;
@@ -177,16 +146,14 @@ UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, si
     return 1;
 }
 // searchFlag: 0 (search free data blocks), 1 (search used data blocks), 2 (search all data blocks)
-INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
+INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
 	UINT8 u8GbdOffset;
     UINT4 u4GroupNo;
 	UINT4 u4ByteIndex, u4BitIndex;
     UINT1 pBuffer[gu4BlockSize];
 	INT1 i1IsBitUsed;
 	struct ext3_group_desc GroupDes;
-    struct StructuredStorageHeader storageHeader;
     UINT4 u4DataBlockNumber;
-    UINT1 blockBuffer[gu4BlockSize];
     UINT4 u4NumBlockGroups;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     
@@ -223,9 +190,42 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                     if (u1SearchFlags == SCAN_ALL_BLOCKS || i1IsBitUsed == u1SearchFlags)
                     {
                         u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
-                        InodeUtilReadDataBlock(u4DataBlockNumber, 0, blockBuffer, gu4BlockSize);
-                        memset(&storageHeader, 0, sizeof(struct StructuredStorageHeader));
-                        memcpy(&storageHeader, blockBuffer, 512);
+			if(IsFileType(u4DataBlockNumber))
+			{
+				// TODO: append to array of files
+				printf("Got here 1\n");
+			}
+			else if(IsIndirect(u4DataBlockNumber))
+			{
+				// TODO: append to array of indirects
+				printf("Got here 2\n");
+			}
+                    }
+                }
+            }
+		}
+		u4GroupNo++;
+	}
+	// TODO:
+	// for each in array of file block numbers as f
+	//	Add block number f + next 11 sequential block numbers to array block_nums
+	// 	for each in array of indirects as i
+	//		if f + 12 == i[0]
+	//			This indirect belongs to this file
+	//			Add this indirect to block_nums
+	//	claim free inode
+	//	create inode entry with block_nums as the block numbers
+	//	write new inode entry at position that was claimed
+	//	create new directory entry in root directory
+	//	give new directory entry the file extension in the name (.doc, .ppt, .xls)
+	return 0;
+}
+UINT1 IsFileType(UINT4 u4DataBlockNumber) {
+    UINT1 u1BlockBuffer[gu4BlockSize];
+    InodeUtilReadDataBlock(u4DataBlockNumber, 0, u1BlockBuffer, gu4BlockSize);
+    struct StructuredStorageHeader storageHeader;
+memset(&storageHeader, 0, sizeof(struct StructuredStorageHeader));
+                        memcpy(&storageHeader, u1BlockBuffer, 512);
                         if (u1MatchesSignatureValues(storageHeader._abSig, abSigValue,sizeof(abSigValue) / sizeof(UINT1)))
                         {
                             printf("Windows Compound Binary File Format Found\n");
@@ -240,38 +240,83 @@ INT4 RecoverDocFindSignatures(UINT1 u1SearchFlags) {
                                     && storageHeader._uSectorShift == uSectorShiftValue2))
                                 && storageHeader._uMiniSectorShift == uMiniSectorShiftValue)
                                 {
-                                if (u1MatchesSignatureValues(blockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
+                                if (u1MatchesSignatureValues(u1BlockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
                                 {
                                     printf("type: .doc\n");
                                 }
-                                else if (u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue2, sizeof(pptSubtypeValue2) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue3, sizeof(pptSubtypeValue3) / sizeof(UINT1))
-                                || (u1MatchesSignatureValues(blockBuffer + 512, pptSubtypeValue4a, sizeof(pptSubtypeValue4a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(blockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1))))
+                                else if (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
+                                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue2, sizeof(pptSubtypeValue2) / sizeof(UINT1))
+                                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue3, sizeof(pptSubtypeValue3) / sizeof(UINT1))
+                                || (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue4a, sizeof(pptSubtypeValue4a) / sizeof(UINT1))
+                                    && u1MatchesSignatureValues(u1BlockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1))))
                                     {
                                     printf("type: .ppt\n");
                                 }
-                                else if ((u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(blockBuffer + 517, xlsSubtypeValue1b, sizeof(xlsSubtypeValue1b) / sizeof(UINT1)))
-                                || (u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue2a, sizeof(xlsSubtypeValue2a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(blockBuffer + 517, xlsSubtypeValue2b, sizeof(xlsSubtypeValue2b) / sizeof(UINT1)))
-                                || u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue3, sizeof(xlsSubtypeValue3) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(blockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1)))
+                                else if ((u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
+                                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue1b, sizeof(xlsSubtypeValue1b) / sizeof(UINT1)))
+                                || (u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue2a, sizeof(xlsSubtypeValue2a) / sizeof(UINT1))
+                                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue2b, sizeof(xlsSubtypeValue2b) / sizeof(UINT1)))
+                                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue3, sizeof(xlsSubtypeValue3) / sizeof(UINT1))
+                                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1)))
                                 {
                                     printf("type: .xls\n");
                                 }
                             }
                             else
                             {
-                                DumpCompoundBinaryFileHeader(&storageHeader);
+                            }
+			    return 1;
+                        } else {
+				return 0;
+			}
+}
+
+UINT1 IsIndirect(UINT4 u4DataBlockNumber) {
+    UINT4 u4TotalAddressesToCheck = gu4BlockSize / 4;
+    float passingPercentOrderedAddresses = 0.75;
+    UINT2 u2MinimumOrderedAddresses = 4;
+    UINT4 u4IndirectAddrBuffer[u4TotalAddressesToCheck];
+                        InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
+UINT4 u4AddressIndex;
+                        UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
+                        UINT4 u4LastOrderedAddress = u4LastAddress;
+                        UINT4 u4InOrderChecks = 0;
+                        UINT4 u4TotalAddressesChecked = 0;
+
+
+                        for (u4AddressIndex = 1; u4AddressIndex < u4TotalAddressesToCheck; u4AddressIndex++)
+                        {
+                            u4TotalAddressesChecked = u4AddressIndex;
+                            // if the two addresses are both 0 the block is not completely filled with addresses so break and look at percentage ordered thus far
+                            if(u4IndirectAddrBuffer[u4AddressIndex] == 0 && u4LastAddress == 0)
+                            {
+                                break;
+                            } // check that the address is greater than the last address
+                            else if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
+                            {
+                                // update the last address
+                                u4LastOrderedAddress = u4LastAddress;
+                                u4LastAddress = u4IndirectAddrBuffer[u4AddressIndex];
+                                u4InOrderChecks += 1;
+                            }else {
+                                // continue
+                            }
+
+                        }
+                        float percentOrdered = (float)u4InOrderChecks / u4TotalAddressesChecked;
+
+                        if(u4InOrderChecks > u2MinimumOrderedAddresses && percentOrdered > passingPercentOrderedAddresses)
+                        {
+                            if(u4IndirectAddrBuffer[0] < sb.s_blocks_count  && u4LastOrderedAddress < sb.s_blocks_count){
+                                // counts how many blocks past this point, used during debugging
+                                // if(u4DataBlockNumber >= 1553){
+                                //     u4BlockCount += 1;
+                                //     printf("%5u ", u4BlockCount);
+                                // }
+                                // printf("Indirect block: %5u (%0.2f) First Addr: %6u  [%4u] Addr: %6u Last Addr: %6u\n", u4DataBlockNumber, percentOrdered, u4IndirectAddrBuffer[0],u4AddressIndex -1, u4LastOrderedAddress, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1]);
+                                printf("%10u %10u %10u %6u %10u %10.2f\n", u4DataBlockNumber, u4IndirectAddrBuffer[0], u4LastOrderedAddress,u4AddressIndex, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1], percentOrdered);
+				return 1;
                             }
                         }
-                    }
-                }
-            }
-		}
-		u4GroupNo++;
-	}
-	return 0;
+			return 0;
 }

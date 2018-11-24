@@ -22,7 +22,8 @@ VOID main(INT4 argc, CHAR** argv )
         return;
     }
     InodeInit(fd);
-    FindIndirectBlocks(u1SearchFlags);
+    //FindIndirectBlocks(u1SearchFlags);
     // RecoverDocFindSignatures(u1SearchFlags);
+    RecoverDocFindMatches(u1SearchFlags);
     InodeInitExit();
 }

@@ -34,108 +34,6 @@ UINT1 pptFooterValue[37] = {0x50, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x65, 0x00, 0x72
 const CHAR* wordFooter =  "576F72642E446F63756D656E742E";
 const CHAR* pptFooter = "50006F0077006500720050006F0069006E007400200044006F00630075006D0065006E0074";
 
-
-/*UINT1 FindIndirectBlocks(UINT1 u1SearchFlags) {
-    UINT8 u8GbdOffset;
-    UINT4 u4GroupNo;
-	UINT4 u4ByteIndex, u4BitIndex;
-    UINT1 pBuffer[gu4BlockSize];
-	INT1 i1IsBitUsed;
-	struct ext3_group_desc GroupDes;
-    UINT4 u4DataBlockNumber;
-    UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
-    UINT4 u4NumBlockGroups;
-    u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
-    UINT4 u4BlockCount = 0;
-    UINT4 u4TotalAddressesToCheck = gu4BlockSize / 4;
-    float passingPercentOrderedAddresses = 0.75;
-    UINT2 u2MinimumOrderedAddresses = 4;
-    
-    if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
-        u1SearchFlags = SCAN_ALL_BLOCKS;
-    }
-    printf("Indirect search parameters:\nMinimum in order addresses: %u\n# Addresses to check per block: %u\nPassing Percent of ordered Addresses: %1.2f\n\n",u2MinimumOrderedAddresses,u4TotalAddressesToCheck,passingPercentOrderedAddresses);
-    
-    // Loop through block groups until a free datablock is found
-    u4GroupNo = 0;
-	while (u4GroupNo <= u4NumBlockGroups)
-	{
-		memset(&GroupDes, 0, sizeof(struct ext3_group_desc));
-    		u8GbdOffset = gu4BlockSize + u4GroupNo * sizeof(struct ext3_group_desc);
-    		if (InodeUtilReadDataOffset(u8GbdOffset, &GroupDes, sizeof(struct ext3_group_desc)) == INODE_FAILURE)
-		{
-    		    printf("ERROR: Failed to read Block group descriptor table %s:%d\n", __FILE__, __LINE__);
-    		    return INODE_FAILURE;
-    		}
-		if (InodeUtilReadDataBlock(GroupDes.bg_block_bitmap, 0, pBuffer, gu4BlockSize) == INODE_FAILURE)
-		{
-			printf("ERROR: Failed to read Block %s:%d\n", __FILE__, __LINE__);
-			return INODE_FAILURE;
-		}
-		printf("Scanning block group %d\n", u4GroupNo);
-        printf("%10s %10s %10s %6s %10s %10s\n", "Indirect", "1st Addr", "Last Used","# Used", "LastInBlk", "(ordered/checked)");
-        for (u4ByteIndex = 0; u4ByteIndex < gu4BlockSize; u4ByteIndex++)
-		{
-			// Check each byte to see if it is all 1's (0xFF)
-            if (1 || pBuffer[u4ByteIndex] != BYTE || u1SearchFlags != SCAN_FREE_BLOCKS)
-            {
-                // If byte is not all 1's, find the first free bit
-                for (u4BitIndex = 0; u4BitIndex < BYTE; u4BitIndex++)
-                {
-                    i1IsBitUsed = ((pBuffer[u4ByteIndex] >> u4BitIndex) & 1);                    
-                    if (1 || u1SearchFlags == SCAN_ALL_BLOCKS || i1IsBitUsed == u1SearchFlags)
-                    {
-                        u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
-                        InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
-                        UINT4 u4AddressIndex;
-                        UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
-                        UINT4 u4LastOrderedAddress = u4LastAddress;
-                        UINT4 u4InOrderChecks = 0;
-                        UINT4 u4TotalAddressesChecked = 0;
-                        
-                        
-                        for (u4AddressIndex = 1; u4AddressIndex < u4TotalAddressesToCheck; u4AddressIndex++)
-                        {
-                            u4TotalAddressesChecked = u4AddressIndex;
-                            // if the two addresses are both 0 the block is not completely filled with addresses so break and look at percentage ordered thus far
-                            if(u4IndirectAddrBuffer[u4AddressIndex] == 0 && u4LastAddress == 0)
-                            {
-                                break;
-                            } // check that the address is greater than the last address
-                            else if (u4IndirectAddrBuffer[u4AddressIndex] - u4LastAddress > 0)
-                            {
-                                // update the last address
-                                u4LastOrderedAddress = u4LastAddress;
-                                u4LastAddress = u4IndirectAddrBuffer[u4AddressIndex];
-                                u4InOrderChecks += 1;
-                            }else {
-                                // continue
-                            }
-
-                        }
-                        float percentOrdered = (float)u4InOrderChecks / u4TotalAddressesChecked;
-                        
-                        if(u4InOrderChecks > u2MinimumOrderedAddresses && percentOrdered > passingPercentOrderedAddresses)
-                        {
-                            if(u4IndirectAddrBuffer[0] < sb.s_blocks_count  && u4LastOrderedAddress < sb.s_blocks_count){
-                                // counts how many blocks past this point, used during debugging
-                                // if(u4DataBlockNumber >= 1553){
-                                //     u4BlockCount += 1;
-                                //     printf("%5u ", u4BlockCount);
-                                // }
-                                // printf("Indirect block: %5u (%0.2f) First Addr: %6u  [%4u] Addr: %6u Last Addr: %6u\n", u4DataBlockNumber, percentOrdered, u4IndirectAddrBuffer[0],u4AddressIndex -1, u4LastOrderedAddress, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1]);
-                                printf("%10u %10u %10u %6u %10u %10.2f\n", u4DataBlockNumber, u4IndirectAddrBuffer[0], u4LastOrderedAddress,u4AddressIndex, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1], percentOrdered);
-                            }
-                        }
-                    }
-                }
-            }
-		}
-		u4GroupNo++;
-	}
-	return 0;
-}    */
-
 UINT1 u1MatchesSignatureValues(UINT1 *u1ActualValues, UINT1 *u1CorrectValues, size_t size){
     UINT4 u4Index1;
     for(u4Index1 = 0; u4Index1 < size; u4Index1++){
@@ -226,11 +124,9 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     UINT4 u4HeaderNumIndex;
     UINT4 u4IndirectNumIndex;
     UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
-    UINT4 u4SecondIndirectAddrBuffer[gu4BlockSize / 4];
     UINT4 u4TempBlockNumber;
     UINT4 u4LastFirstIndirectAddress;
     UINT4 u4LastSecondIndirectAddress;
-    UINT4 u4BlockIndex;
     u4LastFirstIndirectAddress = 0;
     u4LastSecondIndirectAddress = 0;
 
@@ -302,6 +198,8 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
 	//	write new inode entry at position that was claimed
 	//	create new directory entry in root directory
 	//	give new directory entry the file extension in the name (.doc, .ppt, .xls)
+    free(u4HeaderBlocks);
+    free(u4IndirectBlocks);
 	return 0;
 }
 

@@ -9,9 +9,9 @@ VOID main(INT4 argc, CHAR** argv )
     if (argc < 2)
     {
         printf("Example usage: sudo ./recoverdoc <partition> <optional-searchflag>\n");
-        printf("\t <searchflag> values: 0 (search free data blocks)\n");
+        printf("\t <searchflag> values: 0 (search free data blocks) (default)\n");
         printf("\t              values: 1 (search used data blocks)\n");
-        printf("\t              values: 2 (search all data blocks) (default)\n");
+        printf("\t              values: 2 (search all data blocks)\n");
         return;
     } else if (argc > 2) {
     u1SearchFlags = atoi(argv[2]);

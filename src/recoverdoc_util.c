@@ -1,4 +1,5 @@
 #include "recoverdocinc.h"
+#include "copyfileinc.h"
 #include "inodeinc.h"
 
 // signatures reference http://sceweb.sce.uhcl.edu/abeysekera/itec3831/labs/FILE%20SIGNATURES%20TABLE.pdf
@@ -57,11 +58,12 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     UINT4 u4NumHeadersFound;
     UINT4 *u4IndirectBlocks;
     UINT4 u4NumIndirectsFound;
-    
+    UINT4 u4RecoveredFileCount;
     u4NumBlockGroups = sb.s_blocks_count / sb.s_blocks_per_group;
     
     u4NumHeadersFound = 0;
     u4NumIndirectsFound = 0;
+    u4RecoveredFileCount = 0;
     u4HeaderBlocks = calloc(512, sizeof(UINT4));
     u4IndirectBlocks = calloc(512, sizeof(UINT4));
     
@@ -101,17 +103,13 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
                         u4DataBlockNumber = (u4GroupNo * sb.s_blocks_count) + ((u4ByteIndex * BYTE) + u4BitIndex + 1);
                         if(IsFileType(u4DataBlockNumber))
                         {
-                            // TODO: append to array of files
                             u4HeaderBlocks[u4NumHeadersFound] = u4DataBlockNumber;
                             u4NumHeadersFound++;
-                            // printf("Got here 1\n");
                         }
                         else if(IsIndirect(u4DataBlockNumber))
                         {
-                            // TODO: append to array of indirects
                             u4IndirectBlocks[u4NumIndirectsFound] = u4DataBlockNumber;
                             u4NumIndirectsFound++;
-                            // printf("Got here 2\n");
                         }
                     }
                 }
@@ -119,16 +117,31 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
 		}
 		u4GroupNo++;
 	}
-	// TODO:
-	// for each in array of file block numbers as f
+
     UINT4 u4HeaderNumIndex;
     UINT4 u4IndirectNumIndex;
     UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
     UINT4 u4TempBlockNumber;
     UINT4 u4LastFirstIndirectAddress;
     UINT4 u4LastSecondIndirectAddress;
+    UINT4 u4ClaimedInodeNo;
+    UINT8 u8Offset;
+    struct ext3_inode NewInode;
+    struct ext3_inode RootInode;
+    struct ext3_dir_entry_2 NewDirectoryEntry;
+    CHAR Name[] = "RecoveredFile";
+    
     u4LastFirstIndirectAddress = 0;
     u4LastSecondIndirectAddress = 0;
+    
+    // TODO Build new inode instead of copying an existing one and modifying it
+    memset(&NewInode, 0, sizeof(NewInode));
+    if (InodeUtilReadInode(12, &NewInode) == INODE_FAILURE)
+    {
+        printf("ERROR: Failed to read Inode: %d %s:%d\n", 12, __FILE__, __LINE__);
+        return;
+    }
+
 
     printf("File headers found: %4u\n", u4NumHeadersFound);
     printf("Indirects found: %4u\n", u4NumIndirectsFound);
@@ -147,7 +160,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
         for(u4IndirectNumIndex = 0, u4DataBlockNumber = 0; u4IndirectNumIndex < u4NumIndirectsFound; u4IndirectNumIndex++){
             u4DataBlockNumber = u4IndirectBlocks[u4IndirectNumIndex];
             memset(&u4IndirectAddrBuffer, 0, sizeof(u4IndirectAddrBuffer));
-
+            
             if(u4FileBlocks[12] == 0){
                 InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);   
 
@@ -157,7 +170,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
                 }
             }else if(u4FileBlocks[13] == 0 && u4LastFirstIndirectAddress > 0){
                 InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
-
+                
                 if(IsIndirect(u4IndirectAddrBuffer[0])){
                     // Check to see if the first data block is comes right after the last on in the first indirect
                     u4TempBlockNumber = u4IndirectAddrBuffer[0];
@@ -184,8 +197,95 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
             
         }
         printf("%6u  %11u %11u\n", u4FileBlocks[0], u4FileBlocks[12], u4FileBlocks[13]);
-        // TODO Start inode steps as listed in the pseudocode
+
+        // Claim new inode
+        u4ClaimedInodeNo = 0;
+        if (CopyFileUtilClaimFreeInode(&u4ClaimedInodeNo) == INODE_FAILURE)
+        {
+            printf("ERROR: Failed to claim new Inode: %s:%d\n", __FILE__, __LINE__);
+            return;
+        }
+
+        UINT1 u1DirectBlockIndex;
+        for(u1DirectBlockIndex = 0; u1DirectBlockIndex < 12; u1DirectBlockIndex++){
+            NewInode.i_block[u1DirectBlockIndex] = u4HeaderBlocks[u4HeaderNumIndex] + u1DirectBlockIndex;
+        }
+        NewInode.i_block[12] = u4FileBlocks[12];
+        NewInode.i_block[13] = u4FileBlocks[13];
+        NewInode.i_block[14] = u4FileBlocks[14];
         
+        CHAR filenameNumber[5];
+        snprintf(filenameNumber, sizeof(filenameNumber), "%04u", ++u4RecoveredFileCount);
+        UINT1 filetype; 
+        INT4 filenameLength;
+        filetype = IsFileType(u4HeaderBlocks[u4HeaderNumIndex]);
+
+        if(filetype != FILE_TYPE_DOC && filetype != FILE_TYPE_PPT && filetype != FILE_TYPE_XLS){
+            continue;
+        }
+
+        switch(filetype){
+            case FILE_TYPE_DOC:
+                filenameLength = strlen(Name) + strlen(filenameNumber) + strlen(EXT_DOC);
+                break;
+            case FILE_TYPE_PPT:
+                filenameLength = strlen(Name) + strlen(filenameNumber) + strlen(EXT_PPT);
+                break;
+            case FILE_TYPE_XLS:
+                filenameLength = strlen(Name) + strlen(filenameNumber) + strlen(EXT_XLS);
+                break;
+        }
+
+        CHAR *fullFileName = malloc(filenameLength);
+        strcpy(fullFileName, Name);
+        strcat(fullFileName, filenameNumber);
+        
+        switch(filetype){
+            case FILE_TYPE_DOC:
+                strcat(fullFileName, EXT_DOC);        
+                break;
+            case FILE_TYPE_PPT:
+                strcat(fullFileName, EXT_PPT);        
+                break;
+            case FILE_TYPE_XLS:
+                strcat(fullFileName, EXT_XLS);        
+                break;
+        }
+
+        printf("Recovered file: %s\n", fullFileName);
+        // Get new inode offset
+        u8Offset = 0;
+        if (InodeUtilGetInodeOffset(u4ClaimedInodeNo, &u8Offset) == INODE_FAILURE)
+        {
+            printf("ERROR: Failed to get Inode offset: %d %s:%d\n", u4ClaimedInodeNo, __FILE__, __LINE__);
+            return;
+        }
+
+        // Seek to new inode location and copy old inode info to it
+        if (InodeUtilWriteDataOffset(u8Offset, &NewInode, sizeof(NewInode)) == INODE_FAILURE)
+        {
+            printf("ERROR: Failed to write Block %s:%d\n", __FILE__, __LINE__);
+            return;
+        }
+
+            // Get root inode
+        memset(&RootInode, 0, sizeof(RootInode));
+        if (InodeUtilReadInode(ROOT_INODE, &RootInode) == INODE_FAILURE)
+        {
+            printf("ERROR: Failed to read Inode: %d %s:%d\n", ROOT_INODE, __FILE__, __LINE__);
+            return;
+        }
+
+        // Create new directory entry to put in root inode
+        CopyFileUtilCreateDirectoryEntry(&NewDirectoryEntry, u4ClaimedInodeNo, fullFileName);
+
+        // Add directory entry to root inode block 0
+        if (InodeDirAddChildEntry(&NewDirectoryEntry, RootInode.i_block[0]) == INODE_FAILURE)
+        {
+            printf("ERROR: Failed to add child entry Inode: %d %s:%d\n", ROOT_INODE, __FILE__, __LINE__);
+            return;
+        }
+        free(fullFileName);
     }
 
 	//	Add block number f + next 11 sequential block numbers to array block_nums
@@ -208,50 +308,52 @@ UINT1 IsFileType(UINT4 u4DataBlockNumber) {
     InodeUtilReadDataBlock(u4DataBlockNumber, 0, u1BlockBuffer, gu4BlockSize);
     struct StructuredStorageHeader storageHeader;
     memset(&storageHeader, 0, sizeof(struct StructuredStorageHeader));
-                        memcpy(&storageHeader, u1BlockBuffer, 512);
-                        if (u1MatchesSignatureValues(storageHeader._abSig, abSigValue,sizeof(abSigValue) / sizeof(UINT1)))
-                        {
-                            printf("Windows Compound Binary File Format Found\n");
-                            printf("Data block number: %d\n", u4DataBlockNumber);
-                            if ((storageHeader._uDllVersion == uDllVersionValue1
-                                    || storageHeader._uDllVersion == uDllVersionValue2)
-                                && storageHeader._usReserved == usReservedValue
-                                && storageHeader._ulReserved1 == ulReserved1Value
-                                && ((storageHeader._uDllVersion == uDllVersionValue1
-                                    && storageHeader._uSectorShift == uSectorShiftValue1)
-                                    || (storageHeader._uDllVersion == uDllVersionValue2
-                                    && storageHeader._uSectorShift == uSectorShiftValue2))
-                                && storageHeader._uMiniSectorShift == uMiniSectorShiftValue)
-                                {
-                                if (u1MatchesSignatureValues(u1BlockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
-                                {
-                                    printf("type: .doc\n");
-                                }
-                                else if (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue2, sizeof(pptSubtypeValue2) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue3, sizeof(pptSubtypeValue3) / sizeof(UINT1))
-                                || (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue4a, sizeof(pptSubtypeValue4a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(u1BlockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1))))
-                                    {
-                                    printf("type: .ppt\n");
-                                }
-                                else if ((u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue1b, sizeof(xlsSubtypeValue1b) / sizeof(UINT1)))
-                                || (u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue2a, sizeof(xlsSubtypeValue2a) / sizeof(UINT1))
-                                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue2b, sizeof(xlsSubtypeValue2b) / sizeof(UINT1)))
-                                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue3, sizeof(xlsSubtypeValue3) / sizeof(UINT1))
-                                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1)))
-                                {
-                                    printf("type: .xls\n");
-                                }
-                            }
-                            else
-                            {
-                            }
-			    return 1;
-                        } else {
-				return 0;
-			}
+    memcpy(&storageHeader, u1BlockBuffer, 512);
+    if (u1MatchesSignatureValues(storageHeader._abSig, abSigValue,sizeof(abSigValue) / sizeof(UINT1)))
+    {
+        printf("Windows Compound Binary File Format Found\n");
+        printf("Data block number: %d\n", u4DataBlockNumber);
+        if ((storageHeader._uDllVersion == uDllVersionValue1
+                || storageHeader._uDllVersion == uDllVersionValue2)
+            && storageHeader._usReserved == usReservedValue
+            && storageHeader._ulReserved1 == ulReserved1Value
+            && ((storageHeader._uDllVersion == uDllVersionValue1
+                && storageHeader._uSectorShift == uSectorShiftValue1)
+                || (storageHeader._uDllVersion == uDllVersionValue2
+                && storageHeader._uSectorShift == uSectorShiftValue2))
+            && storageHeader._uMiniSectorShift == uMiniSectorShiftValue)
+            {
+                if (u1MatchesSignatureValues(u1BlockBuffer + 512, wordSubtypeValue, sizeof(wordSubtypeValue) / sizeof(UINT1)))
+                {
+                    printf("type: .doc\n");
+                    return FILE_TYPE_DOC;
+                }
+                else if (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue1, sizeof(pptSubtypeValue1) / sizeof(UINT1))
+                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue2, sizeof(pptSubtypeValue2) / sizeof(UINT1))
+                || u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue3, sizeof(pptSubtypeValue3) / sizeof(UINT1))
+                || (u1MatchesSignatureValues(u1BlockBuffer + 512, pptSubtypeValue4a, sizeof(pptSubtypeValue4a) / sizeof(UINT1))
+                    && u1MatchesSignatureValues(u1BlockBuffer + 518, pptSubtypeValue4b, sizeof(pptSubtypeValue4b) / sizeof(UINT1))))
+                    {
+                    printf("type: .ppt\n");
+                    return FILE_TYPE_PPT;
+                }
+                else if ((u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue1a, sizeof(xlsSubtypeValue1a) / sizeof(UINT1))
+                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue1b, sizeof(xlsSubtypeValue1b) / sizeof(UINT1)))
+                || (u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue2a, sizeof(xlsSubtypeValue2a) / sizeof(UINT1))
+                    && u1MatchesSignatureValues(u1BlockBuffer + 517, xlsSubtypeValue2b, sizeof(xlsSubtypeValue2b) / sizeof(UINT1)))
+                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue3, sizeof(xlsSubtypeValue3) / sizeof(UINT1))
+                || u1MatchesSignatureValues(u1BlockBuffer + 512, xlsSubtypeValue4, sizeof(xlsSubtypeValue4) / sizeof(UINT1)))
+                {
+                    printf("type: .xls\n");
+                    return FILE_TYPE_XLS;
+                }
+            }
+        return FILE_TYPE_CBF;
+    }
+    else 
+    {
+        return 0;
+    }
 }
 
 UINT1 IsSecondIndirect(UINT4 u4DataBlockNumber){

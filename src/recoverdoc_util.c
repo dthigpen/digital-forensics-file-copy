@@ -136,7 +136,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     
     // TODO Build new inode instead of copying an existing one and modifying it
     memset(&NewInode, 0, sizeof(NewInode));
-    if (InodeUtilReadInode(12, &NewInode) == INODE_FAILURE)
+    if (InodeUtilReadInode(ROOT_INODE, &NewInode) == INODE_FAILURE)
     {
         printf("ERROR: Failed to read Inode: %d %s:%d\n", 12, __FILE__, __LINE__);
         return;
@@ -147,6 +147,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     printf("Indirects found: %4u\n", u4NumIndirectsFound);
     printf("Header  1st-Indirect 2st-Indirect\n");
     for(u4HeaderNumIndex = 0; u4HeaderNumIndex < u4NumHeadersFound; u4HeaderNumIndex++){
+	UINT4 u4TotalBlocks = 12;
         UINT4 u4FileBlocks[15];
         u4FileBlocks[0] = u4HeaderBlocks[u4HeaderNumIndex];
         // TODO set the direct block nums or not and just use UINT4 vars for first block and the indirects
@@ -167,8 +168,30 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
                 if(u4IndirectAddrBuffer[0] == u4HeaderBlocks[u4HeaderNumIndex] + 12){
                     u4FileBlocks[12] = u4DataBlockNumber;
                     u4LastFirstIndirectAddress = u4IndirectAddrBuffer[gu4BlockSize / 4 - 1];
+		    if(u4LastFirstIndirectAddress == 0)
+		    {
+		        UINT4 u4IndirectAddrIndex;
+		        for(u4IndirectAddrIndex = 0; u4IndirectAddrIndex < gu4BlockSize / 4; u4IndirectAddrIndex++)
+		        {
+			    if(u4IndirectAddrBuffer[u4IndirectAddrIndex] == 0)
+			    {
+				u4TotalBlocks += u4IndirectAddrIndex - 1;
+				break;
+			    }
+		        }
+		    }
+		    break;
                 }
-            }else if(u4FileBlocks[13] == 0 && u4LastFirstIndirectAddress > 0){
+	    }
+        }
+	if(u4LastFirstIndirectAddress > 0)
+	{
+		u4TotalBlocks += (gu4BlockSize / 4);
+        for(u4IndirectNumIndex = 0, u4DataBlockNumber = 0; u4IndirectNumIndex < u4NumIndirectsFound; u4IndirectNumIndex++){
+            u4DataBlockNumber = u4IndirectBlocks[u4IndirectNumIndex];
+            memset(&u4IndirectAddrBuffer, 0, sizeof(u4IndirectAddrBuffer));
+	
+	    if(u4FileBlocks[13] == 0){
                 InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
                 
                 if(IsIndirect(u4IndirectAddrBuffer[0])){
@@ -196,6 +219,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
             }
             
         }
+        }
         printf("%6u  %11u %11u\n", u4FileBlocks[0], u4FileBlocks[12], u4FileBlocks[13]);
 
         // Claim new inode
@@ -205,7 +229,8 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
             printf("ERROR: Failed to claim new Inode: %s:%d\n", __FILE__, __LINE__);
             return;
         }
-
+	NewInode.i_mode = 0x81FF;
+	NewInode.i_size = u4TotalBlocks * gu4BlockSize;
         UINT1 u1DirectBlockIndex;
         for(u1DirectBlockIndex = 0; u1DirectBlockIndex < 12; u1DirectBlockIndex++){
             NewInode.i_block[u1DirectBlockIndex] = u4HeaderBlocks[u4HeaderNumIndex] + u1DirectBlockIndex;

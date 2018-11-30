@@ -4,7 +4,7 @@
 VOID main(INT4 argc, CHAR** argv )
 {
     INT4 fd;
-    UINT1 u1SearchFlags = SCAN_FREE_BLOCKS;
+    UINT1 u1SearchFlags = SCAN_ALL_BLOCKS;
 
     if (argc < 2)
     {

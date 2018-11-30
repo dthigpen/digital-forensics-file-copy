@@ -106,7 +106,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
                             u4HeaderBlocks[u4NumHeadersFound] = u4DataBlockNumber;
                             u4NumHeadersFound++;
                         }
-                        else if(IsIndirect(u4DataBlockNumber))
+                        else if(u4DataBlockNumber > 550 && IsIndirect(u4DataBlockNumber))
                         {
                             u4IndirectBlocks[u4NumIndirectsFound] = u4DataBlockNumber;
                             u4NumIndirectsFound++;
@@ -129,7 +129,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     struct ext3_inode NewInode;
     struct ext3_inode RootInode;
     struct ext3_dir_entry_2 NewDirectoryEntry;
-    CHAR Name[] = "RecoveredFile";
+    CHAR Name[] = "RecoveredDoc";
     
     u4LastFirstIndirectAddress = 0;
     u4LastSecondIndirectAddress = 0;
@@ -138,13 +138,14 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     memset(&NewInode, 0, sizeof(NewInode));
     if (InodeUtilReadInode(ROOT_INODE, &NewInode) == INODE_FAILURE)
     {
-        printf("ERROR: Failed to read Inode: %d %s:%d\n", 12, __FILE__, __LINE__);
+        printf("ERROR: Failed to read Inode: %d %s:%d\n", ROOT_INODE, __FILE__, __LINE__);
         return;
     }
 
 
     printf("File headers found: %4u\n", u4NumHeadersFound);
     printf("Indirects found: %4u\n", u4NumIndirectsFound);
+    
     printf("Header  1st-Indirect 2st-Indirect\n");
     for(u4HeaderNumIndex = 0; u4HeaderNumIndex < u4NumHeadersFound; u4HeaderNumIndex++){
 	UINT4 u4TotalBlocks = 12;
@@ -160,8 +161,8 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
         // Loop through each of the indirects to find the correct ones
         for(u4IndirectNumIndex = 0, u4DataBlockNumber = 0; u4IndirectNumIndex < u4NumIndirectsFound; u4IndirectNumIndex++){
             u4DataBlockNumber = u4IndirectBlocks[u4IndirectNumIndex];
+            // printf("indirect at: %u\n",u4DataBlockNumber);
             memset(&u4IndirectAddrBuffer, 0, sizeof(u4IndirectAddrBuffer));
-            
             if(u4FileBlocks[12] == 0){
                 InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);   
 
@@ -230,6 +231,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
             return;
         }
 	NewInode.i_mode = 0x81FF;
+    NewInode.i_blocks = u4TotalBlocks;
 	NewInode.i_size = u4TotalBlocks * gu4BlockSize;
         UINT1 u1DirectBlockIndex;
         for(u1DirectBlockIndex = 0; u1DirectBlockIndex < 12; u1DirectBlockIndex++){
@@ -313,16 +315,6 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
         free(fullFileName);
     }
 
-	//	Add block number f + next 11 sequential block numbers to array block_nums
-	// 	for each in array of indirects as i
-	//		if f + 12 == i[0]
-	//			This indirect belongs to this file
-	//			Add this indirect to block_nums
-	//	claim free inode
-	//	create inode entry with block_nums as the block numbers
-	//	write new inode entry at position that was claimed
-	//	create new directory entry in root directory
-	//	give new directory entry the file extension in the name (.doc, .ppt, .xls)
     free(u4HeaderBlocks);
     free(u4IndirectBlocks);
 	return 0;
@@ -381,33 +373,11 @@ UINT1 IsFileType(UINT4 u4DataBlockNumber) {
     }
 }
 
-UINT1 IsSecondIndirect(UINT4 u4DataBlockNumber){
-    UINT1 u1IsIndirect;
-    UINT4 u4BlockIndex;
-    UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
-
-    if(IsIndirect(u4DataBlockNumber)){
-        u1IsIndirect = 1;
-        InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
-        for(u4BlockIndex = 0; u4BlockIndex < gu4BlockSize / 4; u4BlockIndex++){            
-            if(u4IndirectAddrBuffer[u4BlockIndex] > 0  && u4IndirectAddrBuffer[u4BlockIndex] < sb.s_blocks_count && IsIndirect(u4IndirectAddrBuffer[u4BlockIndex]) == 0){
-                u1IsIndirect = 0;
-                break;
-            }
-        }
-        if(u1IsIndirect){
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 UINT1 IsIndirect(UINT4 u4DataBlockNumber) {
-    UINT4 u4TotalAddressesToCheck = gu4BlockSize / 4;
+    UINT4 u4TotalAddressesToCheck = gu4BlockSize / 4 / 4;
     float passingPercentOrderedAddresses = 0.75;
     UINT2 u2MinimumOrderedAddresses = 4;
-    UINT4 u4IndirectAddrBuffer[u4TotalAddressesToCheck];
+    UINT4 u4IndirectAddrBuffer[gu4BlockSize / 4];
                         InodeUtilReadDataBlock(u4DataBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
 UINT4 u4AddressIndex;
                         UINT4 u4LastAddress = u4IndirectAddrBuffer[0];
@@ -436,13 +406,12 @@ UINT4 u4AddressIndex;
 
                         }
                         float percentOrdered = (float)u4InOrderChecks / u4TotalAddressesChecked;
-
+                        
                         if(u4InOrderChecks > u2MinimumOrderedAddresses && percentOrdered > passingPercentOrderedAddresses)
                         {
-                            if(u4IndirectAddrBuffer[0] < sb.s_blocks_count  && u4LastOrderedAddress < sb.s_blocks_count){
                                 // printf("%10u %10u %10u %6u %10u %10.2f\n", u4DataBlockNumber, u4IndirectAddrBuffer[0], u4LastOrderedAddress,u4AddressIndex, u4IndirectAddrBuffer[gu4BlockSize / 4 - 1], percentOrdered);
-				return 1;
-                            }
+                            return 1;
+                            
                         }
 			return 0;
 }

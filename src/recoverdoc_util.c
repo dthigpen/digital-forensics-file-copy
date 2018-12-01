@@ -64,8 +64,8 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
     u4NumHeadersFound = 0;
     u4NumIndirectsFound = 0;
     u4RecoveredFileCount = 0;
-    u4HeaderBlocks = calloc(512, sizeof(UINT4));
-    u4IndirectBlocks = calloc(512, sizeof(UINT4));
+    u4HeaderBlocks = (UINT4 *)calloc(512, sizeof(UINT4));
+    u4IndirectBlocks = (UINT4 *)calloc(99999999, sizeof(UINT4));
     
 
     if (u1SearchFlags != SCAN_FREE_BLOCKS && u1SearchFlags != SCAN_USED_BLOCKS && u1SearchFlags != SCAN_ALL_BLOCKS){
@@ -174,9 +174,10 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
 		        UINT4 u4IndirectAddrIndex;
 		        for(u4IndirectAddrIndex = 0; u4IndirectAddrIndex < gu4BlockSize / 4; u4IndirectAddrIndex++)
 		        {
-			    if(u4IndirectAddrBuffer[u4IndirectAddrIndex] == 0)
+			    if(u4IndirectAddrBuffer[u4IndirectAddrIndex] != 0)
 			    {
-				u4TotalBlocks += u4IndirectAddrIndex - 1;
+			        u4TotalBlocks += 1;
+			    } else {
 				break;
 			    }
 		        }
@@ -212,11 +213,35 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
                             InodeUtilReadDataBlock(u4TempBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
                             u4LastSecondIndirectAddress = u4IndirectAddrBuffer[gu4BlockSize / 4 - 1];
                         }
+						if(u4LastSecondIndirectAddress == 0)
+							{
+								UINT4 u4IndirectAddrIndex;
+								for(u4IndirectAddrIndex = 0; u4IndirectAddrIndex < gu4BlockSize / 4; u4IndirectAddrIndex++)
+								{
+								if(u4IndirectAddrBuffer[u4IndirectAddrIndex] != 0)
+								{
+								u4TotalBlocks += (gu4BlockSize/4);
+								} else {
+                            					u4TempBlockNumber = u4IndirectAddrIndex - 1;
+								memset(&u4IndirectAddrBuffer, 0, sizeof(u4IndirectAddrBuffer));
+								InodeUtilReadDataBlock(u4TempBlockNumber, 0, u4IndirectAddrBuffer, gu4BlockSize);
+								u4LastSecondIndirectAddress = u4IndirectAddrBuffer[gu4BlockSize / 4 - 1];
+								for(u4IndirectAddrIndex = 0; u4IndirectAddrIndex < gu4BlockSize / 4; u4IndirectAddrIndex++)
+								{
+									if(u4IndirectAddrBuffer[u4IndirectAddrIndex] != 0)
+									{
+			    						    u4TotalBlocks += 1;
+									} else {
+									    break;
+									}
+								}
+								break;
+								}
+								}
+							}
                     }
                 }
                 
-            }else if(u4FileBlocks[14] == 0 && u4LastSecondIndirectAddress > 0){
-                // TODO Get third indirect use last address of second indirect
             }
             
         }
@@ -231,7 +256,7 @@ INT4 RecoverDocFindMatches(UINT1 u1SearchFlags) {
             return;
         }
 	NewInode.i_mode = 0x81FF;
-    NewInode.i_blocks = u4TotalBlocks;
+    	NewInode.i_blocks = u4TotalBlocks;
 	NewInode.i_size = u4TotalBlocks * gu4BlockSize;
         UINT1 u1DirectBlockIndex;
         for(u1DirectBlockIndex = 0; u1DirectBlockIndex < 12; u1DirectBlockIndex++){
